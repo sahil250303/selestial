@@ -42,7 +42,7 @@ const Auth = () => {
     }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:3000/api/auth/customer/send-otp', {
+      const res = await fetch('/api/auth/customer/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: formData.phone })
@@ -76,7 +76,7 @@ const Auth = () => {
           auth_provider: 'google'
         };
         
-        const res = await fetch(`http://localhost:3000${url}`, {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -102,16 +102,16 @@ const Auth = () => {
     setError('');
     
     try {
-      let endpoint = 'http://localhost:3000/api/auth/customer/login';
+      let endpoint = '/api/auth/customer/login';
       let payload = { email: formData.email, password: formData.password };
 
       if (!isLogin) {
-        endpoint = 'http://localhost:3000/api/auth/customer/signup';
+        endpoint = '/api/auth/customer/signup';
         payload = { name: formData.name, email: formData.email, password: formData.password };
       }
 
       if (authMethod === 'phone') {
-        endpoint = 'http://localhost:3000/api/auth/customer/verify-otp';
+        endpoint = '/api/auth/customer/verify-otp';
         payload = { phone: formData.phone, otp: formData.otp };
         if (!isLogin) {
           payload.name = formData.name;

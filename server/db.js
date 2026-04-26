@@ -1,13 +1,123 @@
-import sqlite3 from 'sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const dbPath = join(__dirname, 'database.sqlite');
-export const db = new sqlite3.Database(dbPath);
+const bundledDbPath = join(__dirname, 'database.sqlite');
+const dbPath = process.env.SQLITE_DB_PATH || (process.env.VERCEL ? join('/tmp', 'database.sqlite') : bundledDbPath);
+
+if (process.env.VERCEL && !fs.existsSync(dbPath) && fs.existsSync(bundledDbPath)) {
+  fs.copyFileSync(bundledDbPath, dbPath);
+}
+
+const sqlite = new DatabaseSync(dbPath);
+
+function splitArgs(args) {
+  const allArgs = [...args];
+  const callback = typeof allArgs.at(-1) === 'function' ? allArgs.pop() : null;
+  const params = allArgs.length === 1 && Array.isArray(allArgs[0]) ? allArgs[0] : allArgs;
+  return { params, callback };
+}
+
+function withCallback(callback, operation) {
+  try {
+    return operation();
+  } catch (error) {
+    if (callback) {
+      callback(error);
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+function toLastId(value) {
+  return typeof value === 'bigint' ? Number(value) : value;
+}
+
+class StatementCompat {
+  constructor(statement) {
+    this.statement = statement;
+  }
+
+  run(...args) {
+    const { params, callback } = splitArgs(args);
+    return withCallback(callback, () => {
+      const result = this.statement.run(...params);
+      const context = {
+        changes: result.changes,
+        lastID: toLastId(result.lastInsertRowid)
+      };
+      if (callback) callback.call(context, null);
+      return context;
+    });
+  }
+
+  get(...args) {
+    const { params, callback } = splitArgs(args);
+    return withCallback(callback, () => {
+      const row = this.statement.get(...params);
+      if (callback) callback(null, row);
+      return row;
+    });
+  }
+
+  all(...args) {
+    const { params, callback } = splitArgs(args);
+    return withCallback(callback, () => {
+      const rows = this.statement.all(...params);
+      if (callback) callback(null, rows);
+      return rows;
+    });
+  }
+
+  finalize() {}
+}
+
+export const db = {
+  serialize(callback) {
+    callback();
+  },
+
+  run(sql, ...args) {
+    const { params, callback } = splitArgs(args);
+    return withCallback(callback, () => {
+      const result = sqlite.prepare(sql).run(...params);
+      const context = {
+        changes: result.changes,
+        lastID: toLastId(result.lastInsertRowid)
+      };
+      if (callback) callback.call(context, null);
+      return context;
+    });
+  },
+
+  get(sql, ...args) {
+    const { params, callback } = splitArgs(args);
+    return withCallback(callback, () => {
+      const row = sqlite.prepare(sql).get(...params);
+      if (callback) callback(null, row);
+      return row;
+    });
+  },
+
+  all(sql, ...args) {
+    const { params, callback } = splitArgs(args);
+    return withCallback(callback, () => {
+      const rows = sqlite.prepare(sql).all(...params);
+      if (callback) callback(null, rows);
+      return rows;
+    });
+  },
+
+  prepare(sql) {
+    return new StatementCompat(sqlite.prepare(sql));
+  }
+};
 
 export function initDb() {
   db.serialize(() => {
@@ -96,8 +206,19 @@ export function initDb() {
       expires_at INTEGER
     )`);
 
-    // Seed admin user if it doesn't exist
+    // Seed or update the admin user.
     db.get("SELECT id FROM admin_users WHERE username = ?", ['admin'], (err, row) => {
+      const configuredPassword = process.env.ADMIN_PASSWORD;
+      if (configuredPassword) {
+        const hashedPassword = bcrypt.hashSync(configuredPassword, 10);
+        if (row) {
+          db.run("UPDATE admin_users SET password = ? WHERE username = ?", [hashedPassword, 'admin']);
+        } else {
+          db.run("INSERT INTO admin_users (username, password) VALUES (?, ?)", ['admin', hashedPassword]);
+        }
+        return;
+      }
+
       if (!row) {
         const hashedPassword = bcrypt.hashSync('Admin123!', 10);
         db.run("INSERT INTO admin_users (username, password) VALUES (?, ?)", ['admin', hashedPassword]);
