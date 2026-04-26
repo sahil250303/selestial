@@ -3,6 +3,9 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+dotenv.config();
 import { fileURLToPath } from 'url';
 import { dirname, join, extname } from 'path';
 import { initDb, db } from './db.js';
@@ -30,6 +33,9 @@ const upload = multer({ storage });
 
 app.use(cors());
 app.use(express.json());
+
+// Health check
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
 // Serve uploaded images statically
 app.use('/api/uploads', express.static(uploadDir));
@@ -249,6 +255,6 @@ app.get('*', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Backend server running on http://0.0.0.0:${PORT}`);
 });
