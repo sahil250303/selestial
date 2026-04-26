@@ -3,13 +3,13 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import fs from 'fs';
-import bcrypt from 'bcryptjs';
 import dotenv from 'dotenv';
 dotenv.config();
 import { fileURLToPath } from 'url';
 import { dirname, join, extname } from 'path';
 import { initDb, db } from './db.js';
 import { loginAdmin, verifyToken, loginCustomer, signupCustomer, sendOtp, verifyOtp } from './auth.js';
+import { createOrderStore } from './orderStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -58,6 +58,7 @@ app.get('/api/uploads/:filename', (req, res) => {
 
 // Initialize database
 initDb();
+const orderStore = createOrderStore({ db });
 
 // Admin Login Route
 app.post('/api/auth/login', loginAdmin);
@@ -86,45 +87,14 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 // Public Checkout Route
-app.post('/api/checkout', (req, res) => {
-  const { firstName, lastName, email, phone, address, cartItems, totalAmount, paymentMethod } = req.body;
-  const customerName = `${firstName} ${lastName}`;
-  const date = new Date().toISOString().split('T')[0];
-  const itemsStr = JSON.stringify(cartItems || []);
-
-  const performOrderAndPayment = () => {
-    const stmtOrder = db.prepare("INSERT INTO orders (customer_name, email, phone, address, items, total_amount, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    stmtOrder.run(customerName, email, phone, address, itemsStr, totalAmount, "Processing", date, function (err) {
-      if (err) {
-        stmtOrder.finalize();
-        return res.status(500).json({ error: 'Database error creating order' });
-      }
-      const orderId = this.lastID;
-      stmtOrder.finalize();
-
-      const stmtPayment = db.prepare("INSERT INTO payments (order_id, amount, method, status, date) VALUES (?, ?, ?, ?, ?)");
-      stmtPayment.run(orderId, totalAmount, paymentMethod || "Credit Card", "Completed", date, function (err) {
-        stmtPayment.finalize();
-        if (err) return res.status(500).json({ error: 'Database error creating payment' });
-        res.status(201).json({ message: "Order processed successfully" });
-      });
-    });
-  };
-
-  db.get("SELECT id FROM customers WHERE email = ?", [email], (err, row) => {
-    if (err) return res.status(500).json({ error: 'Database error checking customer' });
-    
-    if (!row) {
-      const stmtCustomer = db.prepare("INSERT INTO customers (name, email, phone, auth_provider, join_date) VALUES (?, ?, ?, ?, ?)");
-      stmtCustomer.run(customerName, email, phone, 'guest', date, function (err) {
-        stmtCustomer.finalize();
-        if (err) return res.status(500).json({ error: 'Database error creating customer' });
-        performOrderAndPayment();
-      });
-    } else {
-      performOrderAndPayment();
-    }
-  });
+app.post('/api/checkout', async (req, res) => {
+  try {
+    const { orderId } = await orderStore.createCheckout(req.body);
+    res.status(201).json({ message: 'Order processed successfully', orderId });
+  } catch (err) {
+    console.error('Checkout persistence error:', err);
+    res.status(500).json({ error: 'Database error creating order' });
+  }
 });
 
 // Protected Admin Routes
@@ -175,74 +145,91 @@ app.delete('/api/products', verifyToken, (req, res) => {
   });
 });
 
-app.get('/api/orders', verifyToken, (req, res) => {
-  db.all("SELECT * FROM orders", (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json(rows);
-  });
+app.get('/api/orders', verifyToken, async (req, res) => {
+  try {
+    res.json(await orderStore.listOrders());
+  } catch (err) {
+    console.error('Order list error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-app.delete('/api/orders/:id', verifyToken, (req, res) => {
-  const { id } = req.params;
-  db.run("DELETE FROM orders WHERE id = ?", [id], function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+app.delete('/api/orders/:id', verifyToken, async (req, res) => {
+  try {
+    await orderStore.deleteOrder(req.params.id);
     res.json({ message: 'Order deleted successfully' });
-  });
+  } catch (err) {
+    console.error('Order delete error:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
-app.delete('/api/orders', verifyToken, (req, res) => {
-  db.run("DELETE FROM orders", [], function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
-    db.run("DELETE FROM sqlite_sequence WHERE name='orders'", [], function(errSeq) {
-      res.json({ message: 'All orders cleared and ID sequence reset' });
-    });
-  });
+app.delete('/api/orders', verifyToken, async (req, res) => {
+  try {
+    await orderStore.clearOrders();
+    res.json({ message: 'All orders cleared and ID sequence reset' });
+  } catch (err) {
+    console.error('Order clear error:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
-app.get('/api/payments', verifyToken, (req, res) => {
-  db.all("SELECT * FROM payments", (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json(rows);
-  });
+app.get('/api/payments', verifyToken, async (req, res) => {
+  try {
+    res.json(await orderStore.listPayments());
+  } catch (err) {
+    console.error('Payment list error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-app.delete('/api/payments/:id', verifyToken, (req, res) => {
-  const { id } = req.params;
-  db.run("DELETE FROM payments WHERE id = ?", [id], function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+app.delete('/api/payments/:id', verifyToken, async (req, res) => {
+  try {
+    await orderStore.deletePayment(req.params.id);
     res.json({ message: 'Payment deleted successfully' });
-  });
+  } catch (err) {
+    console.error('Payment delete error:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
-app.delete('/api/payments', verifyToken, (req, res) => {
-  db.run("DELETE FROM payments", [], function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+app.delete('/api/payments', verifyToken, async (req, res) => {
+  try {
+    await orderStore.clearPayments();
     res.json({ message: 'All payments cleared' });
-  });
+  } catch (err) {
+    console.error('Payment clear error:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
-app.get('/api/customers', verifyToken, (req, res) => {
-  db.all("SELECT * FROM customers", (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    res.json(rows);
-  });
+app.get('/api/customers', verifyToken, async (req, res) => {
+  try {
+    res.json(await orderStore.listCustomers());
+  } catch (err) {
+    console.error('Customer list error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-app.delete('/api/customers/:id', verifyToken, (req, res) => {
-  const { id } = req.params;
-  db.run("DELETE FROM customers WHERE id = ?", [id], function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+app.delete('/api/customers/:id', verifyToken, async (req, res) => {
+  try {
+    await orderStore.deleteCustomer(req.params.id);
     res.json({ message: 'Customer deleted successfully' });
-  });
+  } catch (err) {
+    console.error('Customer delete error:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
-app.delete('/api/customers', verifyToken, (req, res) => {
-  db.run("DELETE FROM customers", [], function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
-    db.run("DELETE FROM sqlite_sequence WHERE name='customers'", [], function(errSeq) {
-      res.json({ message: 'All customers cleared and ID sequence reset' });
-    });
-  });
+app.delete('/api/customers', verifyToken, async (req, res) => {
+  try {
+    await orderStore.clearCustomers();
+    res.json({ message: 'All customers cleared and ID sequence reset' });
+  } catch (err) {
+    console.error('Customer clear error:', err);
+    res.status(500).json({ error: 'Database error', details: err.message });
+  }
 });
 
 app.get('/api/customer/orders', (req, res) => {
@@ -250,16 +237,16 @@ app.get('/api/customer/orders', (req, res) => {
   if (!authHeader) return res.status(403).json({ error: 'No token provided' });
   const token = authHeader.split(' ')[1];
 
-  jwt.verify(token, process.env.JWT_SECRET || 'selestial-super-secret-key-2026', (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'selestial-super-secret-key-2026', async (err, decoded) => {
     if (err) return res.status(401).json({ error: 'Unauthorized' });
-    
-    const { email, phone } = decoded;
-    let query = "SELECT * FROM orders WHERE email = ? OR phone = ? ORDER BY id DESC";
-    
-    db.all(query, [email || null, phone || null], (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      res.json(rows);
-    });
+
+    try {
+      const { email, phone } = decoded;
+      res.json(await orderStore.listCustomerOrders(email, phone));
+    } catch (storeErr) {
+      console.error('Customer order list error:', storeErr);
+      res.status(500).json({ error: 'Database error' });
+    }
   });
 });
 
