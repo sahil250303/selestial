@@ -17,6 +17,9 @@ import FloatingCart from './components/FloatingCart';
 import ServiceSection from './components/ServiceSection';
 import { WishlistProvider } from './context/WishlistContext';
 import WishlistPage from './pages/WishlistPage';
+import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/react";
+
 
 // Simple Cart Context
 const CartContext = createContext();
@@ -81,7 +84,11 @@ function App() {
             <ServiceSection />
             <Footer />
             <FloatingCart />
+            <SpeedInsights />
+            <Analytics />
           </div>
+
+
         </div>
         </Router>
       </WishlistProvider>
