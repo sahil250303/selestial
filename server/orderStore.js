@@ -161,7 +161,7 @@ function createBlobOrderStore({ blobClient, env, idFactory, now }) {
         putJson(`customers/${customer.id}.json`, customer)
       ]);
 
-      return { orderId: order.id };
+      return { orderId: order.id, order };
     },
     listOrders() {
       return listJson('orders/');
@@ -225,13 +225,14 @@ function createSqliteOrderStore({ db, idFactory, now }) {
         [order.customer_name, order.email, order.phone, order.address, order.items, order.total_amount, order.status, order.date]
       );
       const orderId = orderResult.lastID;
+      const finalOrder = { ...order, id: orderId };
 
       db.run(
         'INSERT INTO payments (order_id, amount, method, status, date) VALUES (?, ?, ?, ?, ?)',
         [orderId, payment.amount, payment.method, payment.status, payment.date]
       );
 
-      return { orderId };
+      return { orderId, order: finalOrder };
     },
     async listOrders() {
       return db.all('SELECT * FROM orders ORDER BY id DESC');
