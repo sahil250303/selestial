@@ -17,9 +17,20 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const uploadDir = join(__dirname, 'uploads');
+const bundledUploadDir = join(__dirname, 'uploads');
+const uploadDir = process.env.VERCEL ? join('/tmp', 'uploads') : bundledUploadDir;
 if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir);
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+if (process.env.VERCEL && fs.existsSync(bundledUploadDir)) {
+  for (const file of fs.readdirSync(bundledUploadDir)) {
+    const source = join(bundledUploadDir, file);
+    const destination = join(uploadDir, file);
+    if (fs.statSync(source).isFile() && !fs.existsSync(destination)) {
+      fs.copyFileSync(source, destination);
+    }
+  }
 }
 
 const storage = multer.diskStorage({
@@ -37,8 +48,13 @@ app.use(express.json());
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
-// Serve uploaded images statically
-app.use('/api/uploads', express.static(uploadDir));
+app.get('/api/uploads/:filename', (req, res) => {
+  const { filename } = req.params;
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    return res.status(400).json({ error: 'Invalid filename' });
+  }
+  res.sendFile(join(uploadDir, filename));
+});
 
 // Initialize database
 initDb();
@@ -251,10 +267,14 @@ app.get('/api/customer/orders', (req, res) => {
 const distPath = join(__dirname, '../dist');
 app.use(express.static(distPath));
 
-app.get('*', (req, res) => {
+app.get('/{*splat}', (req, res) => {
   res.sendFile(join(distPath, 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Backend server running on http://0.0.0.0:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Backend server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+export default app;

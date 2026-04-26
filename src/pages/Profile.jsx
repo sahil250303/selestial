@@ -22,7 +22,7 @@ const Profile = () => {
 
   const fetchOrders = async (token) => {
     try {
-      const res = await fetch('http://localhost:3000/api/customer/orders', {
+      const res = await fetch('/api/customer/orders', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
