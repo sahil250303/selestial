@@ -244,34 +244,6 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Floating Bottom Navigation for Mobile */}
-      <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] max-w-[400px] z-40 transition-transform duration-500">
-        <div className="bg-dark/80 backdrop-blur-xl border border-white/10 rounded-full px-6 py-3.5 flex justify-between items-center shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
-          <Link to="/" className={`relative p-2 flex flex-col items-center justify-center transition-all duration-300 ${location.pathname === '/' ? 'text-white scale-110' : 'text-white/40 hover:text-white'}`}>
-             <Home size={22} strokeWidth={location.pathname === '/' ? 2 : 1.5} />
-             {location.pathname === '/' && <span className="absolute -bottom-1 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>}
-          </Link>
-          <Link to="/products" className={`relative p-2 flex flex-col items-center justify-center transition-all duration-300 ${location.pathname === '/products' ? 'text-white scale-110' : 'text-white/40 hover:text-white'}`}>
-             <Grid size={22} strokeWidth={location.pathname === '/products' ? 2 : 1.5} />
-             {location.pathname === '/products' && <span className="absolute -bottom-1 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>}
-          </Link>
-          <Link to="/cart" className={`relative flex flex-col items-center justify-center transition-all duration-300 -mt-10 ${location.pathname === '/cart' ? 'scale-105' : 'hover:scale-105'}`}>
-             <div className="bg-gradient-to-tr from-gray-800 to-black p-4 rounded-full border border-white/20 shadow-[0_4px_20px_rgba(0,0,0,0.6)] flex items-center justify-center">
-                <ShoppingBag size={22} strokeWidth={1.5} className="text-white" />
-                {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-sm">{cartCount}</span>}
-             </div>
-          </Link>
-          <Link to="/wishlist" className={`relative p-2 flex flex-col items-center justify-center transition-all duration-300 ${location.pathname === '/wishlist' ? 'text-white scale-110' : 'text-white/40 hover:text-white'}`}>
-             <Heart size={22} strokeWidth={location.pathname === '/wishlist' ? 2 : 1.5} />
-             {wishlistCount > 0 && <span className="absolute top-1 -right-1 bg-white text-black text-[9px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">{wishlistCount}</span>}
-             {location.pathname === '/wishlist' && <span className="absolute -bottom-1 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>}
-          </Link>
-          <Link to={customerName ? "/profile" : "/auth"} className={`relative p-2 flex flex-col items-center justify-center transition-all duration-300 ${location.pathname === '/profile' || location.pathname === '/auth' ? 'text-white scale-110' : 'text-white/40 hover:text-white'}`}>
-             <User size={22} strokeWidth={location.pathname === '/profile' || location.pathname === '/auth' ? 2 : 1.5} />
-             {(location.pathname === '/profile' || location.pathname === '/auth') && <span className="absolute -bottom-1 w-1 h-1 bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]"></span>}
-          </Link>
-        </div>
-      </div>
     </nav>
   );
 }
