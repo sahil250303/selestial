@@ -169,77 +169,118 @@ export default function Navbar() {
       {/* Mobile Menu Overlay */}
       <div className={`md:hidden fixed inset-0 z-[60] transition-all duration-500 ease-in-out ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)}></div>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setMobileMenuOpen(false)}></div>
         
         {/* Menu Panel */}
-        <div className={`absolute top-0 right-0 w-[85%] max-w-[375px] h-full bg-gradient-to-b from-dark/95 to-black/95 backdrop-blur-2xl border-l border-white/10 shadow-2xl transition-transform duration-500 ease-out transform ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+        <div className={`absolute top-0 right-0 w-[85%] max-w-[400px] h-full bg-dark/90 backdrop-blur-3xl border-l border-white/5 shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] transform ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'} flex flex-col`}>
+          {/* Decorative Edge */}
+          <div className="absolute left-0 top-0 w-[1px] h-full bg-gradient-to-b from-transparent via-silver/20 to-transparent"></div>
+
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-white/10">
-             <span className="text-white text-sm tracking-[0.2em] font-semibold uppercase">Navigation</span>
-             <button onClick={() => setMobileMenuOpen(false)} className="p-2 bg-white/5 rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all">
-                <X size={20} strokeWidth={1.5} />
+          <div className="flex items-center justify-between p-8">
+             <div className="flex flex-col">
+               <span className="text-white font-serif text-lg tracking-[0.3em] uppercase">Menu</span>
+               <div className="h-[1px] w-8 bg-silver/30 mt-1"></div>
+             </div>
+             <button onClick={() => setMobileMenuOpen(false)} className="group relative p-2 overflow-hidden rounded-full">
+                <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-colors"></div>
+                <X size={24} strokeWidth={1} className="text-white/70 group-hover:text-white transition-all duration-300 group-hover:rotate-90" />
              </button>
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col space-y-6 scrollbar-hide pb-32">
+          <div className="flex-1 overflow-y-auto px-8 py-4 flex flex-col space-y-12 scrollbar-hide">
             
-            {/* Quick Links Glass Cards */}
-            <div className="grid grid-cols-2 gap-4">
-               <Link to="/" onClick={() => setMobileMenuOpen(false)} className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${location.pathname === '/' ? 'bg-white/10 border-white/30 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'} transition-all duration-300`}>
-                  <Home size={22} className="mb-3" strokeWidth={1.5} />
-                  <span className="text-[10px] tracking-widest uppercase font-medium">Home</span>
-               </Link>
-               <Link to="/products" onClick={() => setMobileMenuOpen(false)} className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${location.pathname === '/products' ? 'bg-white/10 border-white/30 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'} transition-all duration-300`}>
-                  <Grid size={22} className="mb-3" strokeWidth={1.5} />
-                  <span className="text-[10px] tracking-widest uppercase font-medium">Shop</span>
-               </Link>
-               <Link to="/wishlist" onClick={() => setMobileMenuOpen(false)} className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${location.pathname === '/wishlist' ? 'bg-white/10 border-white/30 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'} transition-all duration-300 relative`}>
-                  <Heart size={22} className="mb-3" strokeWidth={1.5} />
-                  <span className="text-[10px] tracking-widest uppercase font-medium">Wishlist</span>
-                  {wishlistCount > 0 && <span className="absolute top-3 right-3 bg-white text-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold shadow-md">{wishlistCount}</span>}
-               </Link>
-               {customerName ? (
-                 <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${location.pathname === '/profile' ? 'bg-white/10 border-white/30 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'} transition-all duration-300`}>
-                    <User size={22} className="mb-3" strokeWidth={1.5} />
-                    <span className="text-[10px] tracking-widest uppercase font-medium">Profile</span>
-                 </Link>
-               ) : (
-                 <Link to="/auth" onClick={() => setMobileMenuOpen(false)} className={`flex flex-col items-center justify-center p-5 rounded-2xl border ${location.pathname === '/auth' ? 'bg-white/10 border-white/30 text-white shadow-[0_0_15px_rgba(255,255,255,0.1)]' : 'bg-white/5 border-white/5 text-white/60 hover:bg-white/10 hover:text-white'} transition-all duration-300`}>
-                    <User size={22} className="mb-3" strokeWidth={1.5} />
-                    <span className="text-[10px] tracking-widest uppercase font-medium">Login</span>
-                 </Link>
-               )}
-            </div>
-
-            {/* Categories */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden backdrop-blur-md">
-               <button
-                  onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
-                  className="w-full p-5 flex justify-between items-center text-white/90 hover:bg-white/5 transition-all"
-               >
-                  <span className="text-xs tracking-[0.15em] uppercase font-semibold">Categories</span>
-                  <svg className={`w-4 h-4 transition-transform duration-300 ${isCategoriesOpen ? 'rotate-180 text-white' : 'text-white/50'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-               </button>
-               <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isCategoriesOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-5 pt-0 flex flex-col space-y-4 border-t border-white/5 mt-2">
-                     <Link to="/products?cat=sets" onClick={() => setMobileMenuOpen(false)} className="text-xs text-white/60 hover:text-white tracking-[0.15em] uppercase flex items-center space-x-4 transition-colors p-2 hover:bg-white/5 rounded-lg"><span className="w-1.5 h-1.5 rounded-full bg-white/20"></span><span>Sets</span></Link>
-                     <Link to="/products?cat=earrings" onClick={() => setMobileMenuOpen(false)} className="text-xs text-white/60 hover:text-white tracking-[0.15em] uppercase flex items-center space-x-4 transition-colors p-2 hover:bg-white/5 rounded-lg"><span className="w-1.5 h-1.5 rounded-full bg-white/20"></span><span>Earrings</span></Link>
-                     <Link to="/products?cat=bracelets" onClick={() => setMobileMenuOpen(false)} className="text-xs text-white/60 hover:text-white tracking-[0.15em] uppercase flex items-center space-x-4 transition-colors p-2 hover:bg-white/5 rounded-lg"><span className="w-1.5 h-1.5 rounded-full bg-white/20"></span><span>Bracelets</span></Link>
-                     <Link to="/products?cat=rings" onClick={() => setMobileMenuOpen(false)} className="text-xs text-white/60 hover:text-white tracking-[0.15em] uppercase flex items-center space-x-4 transition-colors p-2 hover:bg-white/5 rounded-lg"><span className="w-1.5 h-1.5 rounded-full bg-white/20"></span><span>Rings</span></Link>
-                     <Link to="/products?cat=necklaces" onClick={() => setMobileMenuOpen(false)} className="text-xs text-white/60 hover:text-white tracking-[0.15em] uppercase flex items-center space-x-4 transition-colors p-2 hover:bg-white/5 rounded-lg"><span className="w-1.5 h-1.5 rounded-full bg-white/20"></span><span>Chains</span></Link>
+            {/* Primary Links - Editorial Style */}
+            <div className="flex flex-col space-y-6">
+              {[
+                { label: 'Home', path: '/', icon: Home, num: '01' },
+                { label: 'Shop All', path: '/products', icon: Grid, num: '02' },
+                { label: 'Wishlist', path: '/wishlist', icon: Heart, num: '03', badge: wishlistCount },
+                { label: customerName ? 'Profile' : 'Login', path: customerName ? '/profile' : '/auth', icon: User, num: '04' }
+              ].map((item, idx) => (
+                <Link 
+                  key={item.path}
+                  to={item.path} 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="group flex items-end justify-between py-2 border-b border-white/5"
+                >
+                  <div className="flex items-baseline space-x-4">
+                    <span className="text-[10px] font-sans text-silver/40 tracking-tighter">{item.num}</span>
+                    <span className={`text-2xl font-serif tracking-widest uppercase transition-all duration-300 ${location.pathname === item.path ? 'text-white' : 'text-white/40 group-hover:text-white group-hover:translate-x-2'}`}>
+                      {item.label}
+                    </span>
                   </div>
+                  <div className="relative">
+                    <item.icon size={18} strokeWidth={1} className={`transition-all duration-500 ${location.pathname === item.path ? 'text-white scale-110' : 'text-white/20 group-hover:text-white group-hover:-translate-y-1'}`} />
+                    {item.badge > 0 && (
+                      <span className="absolute -top-3 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                        {item.badge}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* Collections / Categories Section */}
+            <div className="pt-4">
+               <div className="flex items-center space-x-3 mb-6">
+                  <span className="text-[10px] text-silver/40 uppercase tracking-[0.2em]">Curated Collections</span>
+                  <div className="h-[1px] flex-1 bg-white/5"></div>
+               </div>
+               
+               <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { name: 'Sets', path: '/products?cat=sets' },
+                    { name: 'Earrings', path: '/products?cat=earrings' },
+                    { name: 'Bracelets', path: '/products?cat=bracelets' },
+                    { name: 'Rings', path: '/products?cat=rings' },
+                    { name: 'Chains', path: '/products?cat=necklaces' }
+                  ].map((cat) => (
+                    <Link 
+                      key={cat.name}
+                      to={cat.path} 
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-sm font-sans text-white/50 hover:text-white tracking-[0.15em] uppercase py-2 flex items-center justify-between group transition-colors"
+                    >
+                      <span>{cat.name}</span>
+                      <div className="w-0 h-[1px] bg-silver/30 group-hover:w-12 transition-all duration-500"></div>
+                    </Link>
+                  ))}
                </div>
             </div>
 
-            {/* User Actions */}
-            {customerName && (
-               <div className="mt-8 pt-4">
-                 <button onClick={handleLogout} className="w-full p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs tracking-widest uppercase font-semibold hover:bg-red-500/20 transition-all flex items-center justify-center space-x-2">
-                   <span>Logout</span>
-                 </button>
+            {/* Footer Actions */}
+            <div className="pt-8 mt-auto border-t border-white/5 space-y-8 pb-12">
+               {customerName ? (
+                 <div className="flex flex-col space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                        <User size={14} className="text-white/60" />
+                      </div>
+                      <span className="text-xs text-white/60 tracking-widest uppercase">Signed in as {customerName.split(' ')[0]}</span>
+                    </div>
+                    <button onClick={handleLogout} className="w-full py-4 rounded-lg bg-red-500/5 border border-red-500/10 text-red-400 text-[10px] tracking-[0.3em] uppercase font-medium hover:bg-red-500/10 transition-all">
+                      Logout Account
+                    </button>
+                 </div>
+               ) : (
+                 <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-center space-y-3">
+                    <p className="text-[10px] text-white/40 uppercase tracking-widest">Join the Universe</p>
+                    <Link to="/auth" onClick={() => setMobileMenuOpen(false)} className="block w-full py-3 bg-white text-black text-[10px] tracking-[0.2em] uppercase font-bold hover:bg-silver-light transition-colors rounded-sm">
+                      Create Account
+                    </Link>
+                 </div>
+               )}
+
+               {/* Socials */}
+               <div className="flex justify-center space-x-8 text-white/20">
+                  <a href="#" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Instagram</span></a>
+                  <a href="#" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Pinterest</span></a>
+                  <a href="#" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Support</span></a>
                </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
