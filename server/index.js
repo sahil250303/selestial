@@ -10,7 +10,7 @@ import { dirname, join, extname } from 'path';
 import { initDb, db } from './db.js';
 import { loginAdmin, verifyToken, loginCustomer, signupCustomer, sendOtp, verifyOtp } from './auth.js';
 import { createOrderStore } from './orderStore.js';
-import { sendNewOrderAdminEmail, sendOrderConfirmationCustomerEmail } from './email.js';
+import { sendOrderEmails } from './email.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -94,8 +94,7 @@ app.post('/api/checkout', async (req, res) => {
     
     // Send email notifications asynchronously
     if (order) {
-      sendNewOrderAdminEmail(order).catch(err => console.error("Admin email error:", err));
-      sendOrderConfirmationCustomerEmail(order).catch(err => console.error("Customer email error:", err));
+      sendOrderEmails(order).catch(err => console.error("Order email error:", err));
     }
 
     res.status(201).json({ message: 'Order processed successfully', orderId });
