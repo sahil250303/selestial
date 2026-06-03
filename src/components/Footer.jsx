@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 export default function Footer() {
   return (
-    <footer className="w-full glass-panel bg-black/40 backdrop-blur-2xl border-t border-white/10 pt-16 pb-8 px-6 lg:px-12 relative z-10 mt-20">
+    <footer className="w-full bg-black border-t border-white/10 pt-16 pb-8 px-6 lg:px-12 relative z-10 mt-20">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
         <div className="md:col-span-2">
           <Link to="/" className="inline-flex items-center mb-6 transition-transform duration-300 hover:scale-105 origin-left">
