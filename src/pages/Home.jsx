@@ -1,112 +1,433 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-
-gsap.registerPlugin(ScrollTrigger);
+import { ChevronLeft, ChevronRight, Heart, ArrowRight, MapPin, Calendar } from 'lucide-react';
+import { useCart } from '../App';
+import { useWishlist } from '../context/WishlistContext';
+import { mockProducts } from '../data/mockProducts';
+import { getOptimizedImageUrl } from '../utils/imageUrls';
 
 export default function Home() {
-  const heroRef = useRef();
-  const titleRef = useRef();
-  const subRef = useRef();
-  const btnRef = useRef();
+  const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+
+  // Announcement Bar Slider
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
+  const announcements = [
+    "COMPLIMENTARY SHIPPING ON ORDERS OVER $100",
+    "JOIN THE SELESTIAL CLUB & RECEIVE 10% OFF YOUR FIRST ORDER",
+    "EXQUISITE COMPLIMENTARY GIFT PACKAGING ON ALL ORDERS"
+  ];
 
   useEffect(() => {
-    const tl = gsap.timeline();
-    tl.fromTo(titleRef.current, { y: 50, opacity: 0 }, { y: 0, opacity: 1, duration: 1.5, ease: 'power3.out' })
-      .fromTo(subRef.current, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 1, ease: 'power3.out' }, "-=1")
-      .fromTo(btnRef.current, { scale: 0.9, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: 'back.out(1.7)' }, "-=0.5");
+    const timer = setInterval(() => {
+      setAnnouncementIndex((prev) => (prev + 1) % announcements.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [announcements.length]);
 
-    gsap.utils.toArray('.reveal-section').forEach(section => {
-      gsap.fromTo(section,
-        { y: 100, opacity: 0 },
-        {
-          y: 0, opacity: 1, duration: 1.2, ease: 'power3.out',
-          scrollTrigger: {
-            trigger: section,
-            start: "top 80%",
-          }
-        }
-      );
-    });
-  }, []);
+  // Hero Slider
+  const [currentHero, setCurrentHero] = useState(0);
+  const heroSlides = [
+    {
+      image: "/hero_1.png",
+      title: "THE VENUS RAIN COLLECTION",
+      subtitle: "Sensual shapes and fluid sterling silver silhouettes that capture the starlight.",
+      link: "/products?cat=necklaces",
+      linkText: "SHOP THE COLLECTION"
+    },
+    {
+      image: "/hero_2.png",
+      title: "ELEVATED CLASSICS",
+      subtitle: "Handcrafted 925 sterling silver rings designed to make an understated statement.",
+      link: "/products?cat=rings",
+      linkText: "SHOP RINGS"
+    }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentHero((prev) => (prev + 1) % heroSlides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [heroSlides.length]);
+
+  const prevHeroSlide = () => {
+    setCurrentHero((prev) => (prev === 0 ? heroSlides.length - 1 : prev - 1));
+  };
+
+  const nextHeroSlide = () => {
+    setCurrentHero((prev) => (prev + 1) % heroSlides.length);
+  };
+
+  // Newsletter Success State
+  const [email, setEmail] = useState('');
+  const [subscribed, setSubscribed] = useState(false);
+  const handleSubscribe = (e) => {
+    e.preventDefault();
+    if (email.trim()) {
+      setSubscribed(true);
+      setEmail('');
+    }
+  };
 
   return (
-    <div className="w-full">
-      {/* Hero Section */}
-      <section ref={heroRef} className="h-screen flex flex-col items-center justify-center text-center px-4 relative z-10">
-        <h1 ref={titleRef} className="font-serif text-5xl md:text-7xl lg:text-8xl tracking-widest text-white uppercase mb-4 opacity-0">
-          Selestial
-        </h1>
-        <p ref={subRef} className="font-sans text-sm md:text-lg tracking-[0.3em] text-silver mb-10 uppercase opacity-0">
-          Universe of Silver
-        </p>
-        <div ref={btnRef} className="opacity-0">
-          <Link to="/products" className="group relative inline-flex items-center justify-center px-8 py-4 font-medium tracking-widest text-white uppercase bg-white/10 border border-white/20 backdrop-blur-sm hover:bg-white hover:text-dark transition-all duration-500">
-            Explore Collection
-          </Link>
+    <div className="w-full bg-[#000000] text-white">
+      {/* Announcement Bar */}
+      <div className="w-full bg-[#0d0d0d] border-b border-white/5 py-3 text-center transition-all duration-500">
+        <div className="max-w-7xl mx-auto px-4 overflow-hidden relative h-4 flex items-center justify-center">
+          {announcements.map((text, idx) => (
+            <div
+              key={idx}
+              className={`absolute text-[10px] md:text-[11px] font-sans tracking-[0.25em] text-silver-light uppercase transition-all duration-700 ease-in-out ${
+                idx === announcementIndex ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
+              }`}
+            >
+              {text}
+            </div>
+          ))}
         </div>
-      </section>
+      </div>
 
-      {/* Our Story Section */}
-      <section className="py-24 px-6 lg:px-12 relative z-10 reveal-section text-center">
-        <div className="max-w-4xl mx-auto glass-panel p-10 md:p-16">
-          <h2 className="font-serif text-3xl md:text-4xl text-white tracking-widest uppercase mb-10">Our Story</h2>
-          <div className="space-y-8 text-silver text-sm md:text-base tracking-wider leading-loose font-light">
-            <p>
-              In the vast expanse of the cosmos, where stars shine with eternal brilliance, we found our inspiration. Selestial – with an 'S' instead of 'C' – represents our unique perspective on celestial beauty, reimagined through the timeless elegance of silver.
-            </p>
-            <p>
-              Each piece in our collection is crafted with the precision of stardust and the passion of cosmic artistry. We believe that silver, like the moon's gentle glow, possesses an ethereal quality that transcends time and trend.
-            </p>
-            <p>
-              Our journey began with a simple vision: to create jewellery that doesn't just adorn, but transforms. Every necklace, ring, bracelet, and pair of earrings tells a story – your story – written in the language of silver and light.
-            </p>
-            <div className="pt-4 space-y-2">
-              <p className="tracking-[0.3em] uppercase text-xs text-white/80">Welcome to the Universe of Silver.</p>
-              <p className="font-serif text-xl text-white">Welcome to Selestial.</p>
+      {/* Hero Section */}
+      <section className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-black select-none">
+        {heroSlides.map((slide, idx) => (
+          <div
+            key={idx}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+              idx === currentHero ? 'opacity-100 z-10' : 'opacity-0 z-0'
+            }`}
+          >
+            {/* Background Image */}
+            <div className="absolute inset-0 bg-black/30 z-10" />
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="w-full h-full object-cover transform scale-100 transition-transform duration-[6000ms] ease-out"
+              loading="eager"
+            />
+            {/* Content Overlay */}
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6">
+              <span className="text-[10px] md:text-xs tracking-[0.4em] text-silver uppercase mb-4 font-sans font-medium">NEW COLLECTION</span>
+              <h1 className="font-serif text-3xl md:text-5xl lg:text-6xl tracking-widest text-white uppercase mb-6 max-w-3xl leading-tight">
+                {slide.title}
+              </h1>
+              <p className="font-sans text-xs md:text-sm tracking-[0.15em] text-silver-light max-w-lg mb-10 leading-relaxed font-light">
+                {slide.subtitle}
+              </p>
+              <div className="flex gap-4">
+                <Link
+                  to={slide.link}
+                  className="px-8 py-3.5 text-xs font-bold tracking-widest text-black bg-white uppercase hover:bg-silver-light transition-all duration-300 rounded-sm"
+                >
+                  {slide.linkText}
+                </Link>
+                <Link
+                  to="/products"
+                  className="px-8 py-3.5 text-xs font-bold tracking-widest text-white border border-white uppercase hover:bg-white hover:text-black transition-all duration-300 rounded-sm"
+                >
+                  DISCOVER ALL
+                </Link>
+              </div>
             </div>
           </div>
+        ))}
+
+        {/* Hero Navigation Controls */}
+        <button
+          onClick={prevHeroSlide}
+          className="absolute left-6 top-1/2 -translate-y-1/2 z-30 p-2 text-white/50 hover:text-white hover:bg-black/20 rounded-full transition-all duration-300"
+          aria-label="Previous Slide"
+        >
+          <ChevronLeft size={28} strokeWidth={1} />
+        </button>
+        <button
+          onClick={nextHeroSlide}
+          className="absolute right-6 top-1/2 -translate-y-1/2 z-30 p-2 text-white/50 hover:text-white hover:bg-black/20 rounded-full transition-all duration-300"
+          aria-label="Next Slide"
+        >
+          <ChevronRight size={28} strokeWidth={1} />
+        </button>
+
+        {/* Indicator dots */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex space-x-3">
+          {heroSlides.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentHero(idx)}
+              className={`h-0.5 w-8 transition-colors duration-300 ${idx === currentHero ? 'bg-white' : 'bg-white/30'}`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
         </div>
       </section>
 
-      {/* Categories from Reference (Glassmorphism Styled) */}
-      <section className="py-24 relative z-10 reveal-section overflow-hidden px-4 lg:px-12">
-        <div className="max-w-[100rem] mx-auto glass-panel rounded-[2rem] p-8 lg:p-16 border border-white/10 shadow-2xl">
-          <div className="flex justify-between items-end mb-12">
-            <h2 className="font-sans text-2xl md:text-3xl lg:text-4xl text-white tracking-tight uppercase max-w-2xl leading-none">
-              Browse a wide range of <span className="font-bold">Selestial</span> pieces
-            </h2>
+      {/* Shop by Category Grid */}
+      <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="font-serif text-xl md:text-2xl text-center text-white tracking-[0.3em] uppercase mb-16">
+            SHOP BY CATEGORY
+          </h2>
 
-          </div>
-
-          <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-6 pb-8 md:pb-0 hide-scrollbar snap-x">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             {[
-              { name: 'CHAINS', img: '/categories/Chain.png', query: 'necklaces' },
-              { name: 'BRACELETS', img: '/categories/Bracelets.png', query: 'bracelets' },
-              { name: 'RINGS', img: '/categories/Rings.png', query: 'rings' },
-              { name: 'EARRINGS', img: '/categories/Earrings.png', query: 'earrings' },
-              { name: 'SETS', img: '/categories/Sets.png', query: 'sets' }
+              { name: 'Chains', img: '/categories/Chain-960.webp', query: 'necklaces' },
+              { name: 'Bracelets', img: '/categories/Bracelets-960.webp', query: 'bracelets' },
+              { name: 'Rings', img: '/categories/Rings-960.webp', query: 'rings' },
+              { name: 'Earrings', img: '/categories/Earrings-960.webp', query: 'earrings' },
+              { name: 'Sets', img: '/categories/Sets-960.webp', query: 'sets' }
             ].map((cat) => (
-              <Link to={`/products?cat=${cat.query}`} key={cat.name} className="group flex flex-col min-w-[70vw] sm:min-w-[40vw] md:min-w-0 snap-start cursor-pointer">
-                <div className="aspect-square bg-dark/50 overflow-hidden mb-6 border border-white/5 rounded-xl shadow-lg relative">
-                  <div className="absolute inset-0 bg-white/5 mix-blend-overlay group-hover:bg-transparent transition-colors z-10 pointer-events-none"></div>
+              <Link
+                to={`/products?cat=${cat.query}`}
+                key={cat.name}
+                className="group flex flex-col items-center cursor-pointer"
+              >
+                <div className="w-full aspect-square bg-[#0a0a0a] overflow-hidden border border-white/5 relative">
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500 z-10 pointer-events-none" />
                   <img
                     src={cat.img}
                     alt={cat.name}
-                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading="lazy"
-                    decoding="async"
                   />
                 </div>
-                <h3 className="font-sans font-bold text-white text-sm tracking-widest uppercase ml-2">{cat.name}</h3>
+                <h3 className="font-sans font-bold text-white text-[11px] tracking-[0.25em] uppercase mt-5 text-center group-hover:text-silver-light transition-colors duration-300">
+                  {cat.name}
+                </h3>
               </Link>
             ))}
           </div>
         </div>
       </section>
 
+      {/* Split Promotional Banners */}
+      <section className="py-20 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
+          {/* Left Split */}
+          <div className="flex flex-col group">
+            <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden border border-white/5 mb-6">
+              <img
+                src="/split_1.png"
+                alt="Stellar Chains Campaign"
+                className="w-full h-full object-cover transform group-hover:scale-102 transition-transform duration-700 ease-out"
+                loading="lazy"
+              />
+            </div>
+            <span className="text-[10px] tracking-[0.3em] text-silver-dark uppercase mb-2 font-medium">CAMPAIGN SPOTLIGHT</span>
+            <h3 className="font-serif text-xl tracking-wider text-white uppercase mb-3">
+              STELLAR CHAINS & PENDANTS
+            </h3>
+            <p className="text-silver-dark text-xs tracking-wider font-light leading-relaxed mb-6 max-w-md">
+              Explore a curated study in sleek geometric forms and hand-finished premium link designs that catch light from every angle.
+            </p>
+            <Link
+              to="/products?cat=necklaces"
+              className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-white border-b border-white/20 pb-1 hover:border-white w-fit transition-colors group/btn"
+            >
+              DISCOVER CHAINS
+              <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform duration-300" />
+            </Link>
+          </div>
 
+          {/* Right Split */}
+          <div className="flex flex-col group">
+            <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden border border-white/5 mb-6">
+              <img
+                src="/split_2.png"
+                alt="Nova Cuffs Campaign"
+                className="w-full h-full object-cover transform group-hover:scale-102 transition-transform duration-700 ease-out"
+                loading="lazy"
+              />
+            </div>
+            <span className="text-[10px] tracking-[0.3em] text-silver-dark uppercase mb-2 font-medium">SEASONAL ESSENTIALS</span>
+            <h3 className="font-serif text-xl tracking-wider text-white uppercase mb-3">
+              THE NOVA CUFFS
+            </h3>
+            <p className="text-silver-dark text-xs tracking-wider font-light leading-relaxed mb-6 max-w-md">
+              Striking minimalist silhouettes engineered to wrap the wrist in timeless radiance and clean modern finish.
+            </p>
+            <Link
+              to="/products?cat=bracelets"
+              className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-white border-b border-white/20 pb-1 hover:border-white w-fit transition-colors group/btn"
+            >
+              DISCOVER BRACELETS
+              <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform duration-300" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Trending Spotlight / "Our Picks" */}
+      <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="font-serif text-xl md:text-2xl text-center text-white tracking-[0.3em] uppercase mb-16">
+            OUR PICKS FOR YOU
+          </h2>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+            {mockProducts.slice(0, 4).map((product) => {
+              const inWish = isInWishlist(product.id);
+              return (
+                <div key={product.id} className="group flex flex-col relative">
+                  {/* Image Container */}
+                  <div className="w-full aspect-square bg-[#0a0a0a] border border-white/5 overflow-hidden relative">
+                    <img
+                      src={getOptimizedImageUrl(product.image, { width: 480, quality: 72 })}
+                      alt={product.name}
+                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
+                      loading="lazy"
+                    />
+
+                    {/* Wishlist Heart Icon */}
+                    <button
+                      onClick={() => toggleWishlist(product)}
+                      className="absolute top-4 right-4 z-20 p-2 bg-black/40 hover:bg-black/60 rounded-full text-white transition-all duration-300"
+                      title={inWish ? "Remove from Wishlist" : "Add to Wishlist"}
+                    >
+                      <Heart size={16} fill={inWish ? "#ffffff" : "none"} stroke="currentColor" strokeWidth={1.5} />
+                    </button>
+
+                    {/* Quick Add CTA */}
+                    <button
+                      onClick={() => addToCart({ ...product, size: 'Free Size', color: 'Silver' })}
+                      className="absolute bottom-0 left-0 right-0 py-3 bg-white text-black text-center text-[10px] tracking-[0.25em] uppercase font-bold translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-20 hover:bg-silver-light"
+                    >
+                      QUICK ADD
+                    </button>
+                  </div>
+
+                  {/* Info below */}
+                  <Link to={`/product/${product.id}`} className="mt-5 flex flex-col">
+                    <h3 className="font-serif text-sm tracking-wide text-white uppercase group-hover:underline">
+                      {product.name}
+                    </h3>
+                    <p className="text-[11px] text-silver-dark tracking-[0.1em] uppercase mt-1">
+                      {product.category}
+                    </p>
+                    <p className="text-sm font-semibold tracking-wider text-silver-light mt-2">
+                      ${product.price.toFixed(2)}
+                    </p>
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Editorial Heritage/Story Section */}
+      <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-12 lg:gap-20">
+          <div className="aspect-[4/3] bg-[#0a0a0a] border border-white/5 overflow-hidden">
+            <img
+              src="/brand_story.png"
+              alt="Selestial Craftsman at work"
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+
+          <div className="flex flex-col text-left">
+            <span className="text-[10px] tracking-[0.4em] text-silver-dark uppercase mb-3 font-medium">CRAFTSMANSHIP</span>
+            <h2 className="font-serif text-2xl md:text-4xl text-white tracking-widest uppercase mb-8 leading-tight">
+              COSMIC CRAFTSMANSHIP
+            </h2>
+            <div className="space-y-6 text-silver-dark text-xs tracking-wider leading-relaxed font-light max-w-xl">
+              <p>
+                Inspired by the celestial vault, where stars burn with eternal brilliance, Selestial translates the wonders of the universe into physical jewelry. 
+              </p>
+              <p>
+                Each creation is hand-finished in premium 925 sterling silver, balancing geometric precision with fluid forms. We select and sculpt our silver to mirror the gentle brilliance of the moon's light, delivering understated statements that remain durable for lifetimes.
+              </p>
+            </div>
+            <Link
+              to="/products"
+              className="inline-flex items-center gap-2 text-xs font-bold tracking-widest text-white border-b border-white/20 pb-1 hover:border-white w-fit mt-8 transition-colors group/story"
+            >
+              EXPLORE THE HERITAGE
+              <ArrowRight size={12} className="group-hover/story:translate-x-1 transition-transform duration-300" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Store Locator & Appointment Widgets */}
+      <section className="px-6 lg:px-12 bg-[#000000] border-b border-white/5">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 border border-white/10 my-16 divide-y md:divide-y-0 md:divide-x divide-white/10">
+          {/* Store Locator */}
+          <div className="p-8 md:p-12 flex flex-col justify-between min-h-[220px]">
+            <div>
+              <div className="flex items-center gap-3 text-silver-light mb-4">
+                <MapPin size={20} strokeWidth={1.5} />
+                <h4 className="text-xs font-bold tracking-[0.2em] text-white uppercase">FIND A STORE</h4>
+              </div>
+              <p className="text-silver-dark text-xs tracking-wider leading-relaxed mb-6 max-w-sm">
+                Discover the physical Selestial experience near you. Walk in to explore collections, fit sizes, and speak with store consultants.
+              </p>
+            </div>
+            <a
+              href="#"
+              className="px-6 py-3 border border-white/20 text-white text-center text-[10px] tracking-widest font-bold uppercase rounded-sm hover:bg-white hover:text-black transition-all duration-300 w-fit"
+            >
+              STORE LOCATOR
+            </a>
+          </div>
+
+          {/* Book Appointment */}
+          <div className="p-8 md:p-12 flex flex-col justify-between min-h-[220px]">
+            <div>
+              <div className="flex items-center gap-3 text-silver-light mb-4">
+                <Calendar size={20} strokeWidth={1.5} />
+                <h4 className="text-xs font-bold tracking-[0.2em] text-white uppercase">BOOK AN APPOINTMENT</h4>
+              </div>
+              <p className="text-silver-dark text-xs tracking-wider leading-relaxed mb-6 max-w-sm">
+                Schedule a private online or in-store styling consultation with our certified experts to find the perfect piece or custom set.
+              </p>
+            </div>
+            <a
+              href="#"
+              className="px-6 py-3 border border-white/20 text-white text-center text-[10px] tracking-widest font-bold uppercase rounded-sm hover:bg-white hover:text-black transition-all duration-300 w-fit"
+            >
+              BOOK NOW
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Selestial Club / Membership Signup */}
+      <section className="py-24 px-6 lg:px-12 bg-[#000000]">
+        <div className="max-w-3xl mx-auto border border-white/10 p-8 md:p-16 text-center bg-[#070707]">
+          <span className="text-[10px] tracking-[0.4em] text-silver uppercase mb-4 block font-medium">MEMBERSHIP</span>
+          <h2 className="font-serif text-xl md:text-3xl text-white tracking-widest uppercase mb-4">
+            JOIN THE SELESTIAL CLUB
+          </h2>
+          <p className="text-silver-dark text-xs tracking-wider leading-relaxed mb-10 max-w-md mx-auto">
+            Become a member to receive 10% off your first online order, early access to new seasonal collections, and private invitations.
+          </p>
+
+          {subscribed ? (
+            <div className="text-xs tracking-widest uppercase font-bold text-silver-light border border-white/20 p-4 max-w-md mx-auto">
+              Welcome to the Universe of Silver. Your 10% code has been sent.
+            </div>
+          ) : (
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+              <input
+                required
+                type="email"
+                placeholder="ENTER YOUR EMAIL..."
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1 bg-transparent border-b border-white/20 py-2.5 text-xs text-white text-center sm:text-left focus:border-white outline-none tracking-widest uppercase"
+              />
+              <button
+                type="submit"
+                className="px-8 py-3 text-xs font-bold tracking-widest bg-white text-black hover:bg-silver-light uppercase transition-colors duration-300 rounded-sm"
+              >
+                JOIN NOW
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

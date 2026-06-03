@@ -28,44 +28,41 @@ const ServiceSection = () => {
   ];
 
   return (
-    <section className="py-20 px-4 relative overflow-hidden">
+    <section className="py-20 px-6 lg:px-12 border-t border-white/10 bg-black relative">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-light tracking-[0.3em] text-center text-white mb-16">
+        <h2 className="text-xl md:text-2xl font-light tracking-[0.4em] text-center text-white mb-16 uppercase">
           SELESTIAL SERVICES
         </h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 border border-white/10">
           {services.map((service, index) => (
             <div 
               key={index}
-              className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 flex flex-col items-center text-center group hover:bg-white/10 transition-all duration-500 hover:-translate-y-2"
+              className="p-8 md:p-12 flex flex-col items-center text-center border-b border-white/10 md:border-b-0 md:border-r border-white/10 last:border-r-0 last:border-b-0"
             >
-              <div className="text-silver-light mb-6 transform transition-transform group-hover:scale-110 duration-500">
+              <div className="text-silver-light mb-6">
                 {service.icon}
               </div>
               
-              <h3 className="text-sm font-medium tracking-widest text-white mb-4">
+              <h3 className="text-xs font-bold tracking-[0.2em] text-white uppercase mb-4">
                 {service.title}
               </h3>
               
-              <p className="text-gray-400 text-sm leading-relaxed mb-8 min-h-[40px]">
+              <p className="text-silver-dark text-xs tracking-wider leading-relaxed mb-8 max-w-xs min-h-[40px]">
                 {service.description}
               </p>
               
               <Link 
                 to={service.link}
-                className="mt-auto flex items-center gap-2 text-xs font-semibold tracking-widest text-white border-b border-white/20 pb-1 hover:border-white transition-colors group/btn"
+                className="mt-auto flex items-center gap-2 text-xs font-bold tracking-widest text-white border-b border-white/20 pb-1 hover:border-white transition-colors group/btn"
               >
                 {service.cta}
-                <ArrowRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform duration-300" />
               </Link>
             </div>
           ))}
         </div>
       </div>
-      
-      {/* Decorative background element */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-blue-500/5 blur-[120px] -z-10 rounded-full" />
     </section>
   );
 };

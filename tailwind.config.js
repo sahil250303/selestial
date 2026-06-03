@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        dark: "#050505",
+        dark: "#000000",
         surface: "#111111",
         silver: {
           light: "#E5E7EB",
