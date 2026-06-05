@@ -8,7 +8,7 @@ dotenv.config();
 import { fileURLToPath } from 'url';
 import { dirname, join, extname } from 'path';
 import { initDb, db } from './db.js';
-import { loginAdmin, verifyToken, loginCustomer, signupCustomer, sendOtp, verifyOtp } from './auth.js';
+import { loginAdmin, verifyToken, loginCustomer, signupCustomer, sendOtp, verifyOtp, authenticateGoogle } from './auth.js';
 import { createOrderStore } from './orderStore.js';
 import { sendOrderEmails } from './email.js';
 
@@ -67,6 +67,7 @@ app.post('/api/auth/login', loginAdmin);
 // Customer Auth Routes
 app.post('/api/auth/customer/signup', signupCustomer);
 app.post('/api/auth/customer/login', loginCustomer);
+app.post('/api/auth/customer/google', authenticateGoogle);
 app.post('/api/auth/customer/send-otp', sendOtp);
 app.post('/api/auth/customer/verify-otp', verifyOtp);
 

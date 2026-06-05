@@ -189,6 +189,8 @@ export function initDb() {
       phone TEXT,
       password TEXT,
       auth_provider TEXT,
+      google_id TEXT,
+      picture TEXT,
       join_date TEXT
     )`, () => {
       db.all("PRAGMA table_info(customers)", (err, rows) => {
@@ -196,8 +198,12 @@ export function initDb() {
           if (!rows.find(col => col.name === 'phone')) db.run("ALTER TABLE customers ADD COLUMN phone TEXT");
           if (!rows.find(col => col.name === 'password')) db.run("ALTER TABLE customers ADD COLUMN password TEXT");
           if (!rows.find(col => col.name === 'auth_provider')) db.run("ALTER TABLE customers ADD COLUMN auth_provider TEXT");
+          if (!rows.find(col => col.name === 'google_id')) db.run("ALTER TABLE customers ADD COLUMN google_id TEXT");
+          if (!rows.find(col => col.name === 'picture')) db.run("ALTER TABLE customers ADD COLUMN picture TEXT");
         }
       });
+      db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email ON customers(email) WHERE email IS NOT NULL");
+      db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_google_id ON customers(google_id) WHERE google_id IS NOT NULL");
     });
 
     db.run(`CREATE TABLE IF NOT EXISTS otp_sessions (
