@@ -161,6 +161,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Our Story Section */}
+      <section className="py-24 px-6 lg:px-12 relative z-10 text-center">
+        <div className="max-w-4xl mx-auto border border-white/10 p-10 md:p-16 rounded-[2rem] bg-[#070707]">
+          <h2 className="font-serif text-3xl md:text-4xl text-white tracking-widest uppercase mb-10">Our Story</h2>
+          <div className="space-y-8 text-silver text-sm md:text-base tracking-wider leading-loose font-light">
+            <p>
+              In the vast expanse of the cosmos, where stars shine with eternal brilliance, we found our inspiration. Selestial – with an 'S' instead of 'C' – represents our unique perspective on celestial beauty, reimagined through the timeless elegance of silver.
+            </p>
+            <p>
+              Each piece in our collection is crafted with the precision of stardust and the passion of cosmic artistry. We believe that silver, like the moon's gentle glow, possesses an ethereal quality that transcends time and trend.
+            </p>
+            <p>
+              Our journey began with a simple vision: to create jewellery that doesn't just adorn, but transforms. Every necklace, ring, bracelet, and pair of earrings tells a story – your story – written in the language of silver and light.
+            </p>
+            <div className="pt-6 space-y-3">
+              <p className="tracking-[0.3em] uppercase text-xs text-white/80">Welcome to the Universe of Silver.</p>
+              <p className="font-serif text-xl text-white">Welcome to Selestial.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Shop by Category Grid */}
       <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
         <div className="max-w-7xl mx-auto">
