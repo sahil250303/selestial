@@ -56,13 +56,13 @@ export default function Navbar() {
   };
 
   return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-black/95 border-b border-white/10 shadow-lg py-4' : 'bg-transparent py-6'}`}>
+    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg py-4' : 'bg-transparent py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 lg:px-12 flex justify-between items-center">
 
         {/* Logo */}
         <Link to="/" className={`flex items-center justify-center relative transition-transform duration-300 hover:scale-105 ${isSearchOpen ? 'hidden lg:flex' : 'flex'}`}>
           <img
-            src="/SVG/white%20logo.svg"
+            src={scrolled ? "/SVG/Black%20logo.svg" : "/SVG/white%20logo.svg"}
             alt="Selestial Logo"
             className="h-10 md:h-12 w-auto object-contain transition-all duration-300"
           />
@@ -79,21 +79,21 @@ export default function Navbar() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchSubmit}
                 placeholder="SEARCH UNIVERSE OF SILVER..."
-                className="w-full bg-transparent border-b outline-none text-sm tracking-widest uppercase py-1 border-white text-white placeholder:text-white/50"
+                className={`w-full bg-transparent border-b outline-none text-sm tracking-widest uppercase py-1 transition-colors duration-300 ${scrolled ? 'border-dark text-dark placeholder:text-dark/50' : 'border-white text-white placeholder:text-white/50'}`}
               />
               <button
                 onClick={() => setIsSearchOpen(false)}
-                className="text-xs tracking-widest uppercase font-semibold transition-colors text-white hover:text-silver"
+                className={`text-xs tracking-widest uppercase font-semibold transition-colors ${scrolled ? 'text-dark hover:text-gray-500' : 'text-white hover:text-silver'}`}
               >
                 CLOSE
               </button>
             </div>
           ) : (
-            <div className="hidden md:flex items-center space-x-10 text-sm font-medium tracking-wider text-silver">
-              <Link to="/" className={`transition-colors duration-200 hover:text-white ${location.pathname === '/' ? 'text-white' : ''}`}>HOME</Link>
-              <Link to="/products" className={`transition-colors duration-200 hover:text-white ${location.pathname === '/products' && !location.search ? 'text-white' : ''}`}>ALL PRODUCTS</Link>
+            <div className={`hidden md:flex items-center space-x-10 text-sm font-medium tracking-wider transition-colors duration-300 ${scrolled ? 'text-gray-700' : 'text-silver'}`}>
+              <Link to="/" className={`transition-colors duration-200 ${scrolled ? 'hover:text-dark' : 'hover:text-white'} ${location.pathname === '/' ? (scrolled ? 'text-dark font-semibold' : 'text-white') : ''}`}>HOME</Link>
+              <Link to="/products" className={`transition-colors duration-200 ${scrolled ? 'hover:text-dark' : 'hover:text-white'} ${location.pathname === '/products' && !location.search ? (scrolled ? 'text-dark font-semibold' : 'text-white') : ''}`}>ALL PRODUCTS</Link>
               <div className="relative group cursor-pointer">
-                <span className={`transition-colors duration-200 uppercase hover:text-white ${location.search.includes('cat=') ? 'text-white' : ''}`}>CATEGORIES</span>
+                <span className={`transition-colors duration-200 uppercase ${scrolled ? 'hover:text-dark' : 'hover:text-white'} ${location.search.includes('cat=') ? (scrolled ? 'text-dark font-semibold' : 'text-white') : ''}`}>CATEGORIES</span>
                 {/* Simple dropdown for categories */}
                 <div className="absolute top-full left-0 mt-2 w-48 glass-panel opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 p-4 space-y-3 flex flex-col">
                   <Link to="/products?cat=sets" className="hover:text-white transition-colors">Sets</Link>
@@ -108,10 +108,10 @@ export default function Navbar() {
         </div>
 
         {/* Icons */}
-        <div className="flex items-center space-x-6 text-silver">
+        <div className={`flex items-center space-x-6 transition-colors duration-300 ${scrolled ? 'text-dark' : 'text-silver'}`}>
           <button
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className="hover:text-white transition"
+            className={`${scrolled ? 'hover:text-gray-600' : 'hover:text-white'} transition`}
           >
             <Search size={20} strokeWidth={1.5} />
           </button>
@@ -120,13 +120,13 @@ export default function Navbar() {
             {customerName ? (
               <button 
                 onClick={() => setShowUserDropdown(!showUserDropdown)}
-                className="flex items-center space-x-2 text-xs tracking-widest font-semibold uppercase hover:text-white transition"
+                className={`flex items-center space-x-2 text-xs tracking-widest font-semibold uppercase ${scrolled ? 'hover:text-gray-600' : 'hover:text-white'} transition`}
               >
                 <User size={20} strokeWidth={1.5} />
                 <span className="hidden lg:inline">{customerName.split(' ')[0]}</span>
               </button>
             ) : (
-              <Link to="/auth" className="hover:text-white transition">
+              <Link to="/auth" className={`${scrolled ? 'hover:text-gray-600' : 'hover:text-white'} transition`}>
                 <User size={20} strokeWidth={1.5} />
               </Link>
             )}
@@ -140,7 +140,7 @@ export default function Navbar() {
             )}
           </div>
 
-          <Link to="/wishlist" className="relative hidden sm:block hover:text-white transition">
+          <Link to="/wishlist" className={`relative hidden sm:block ${scrolled ? 'hover:text-gray-600' : 'hover:text-white'} transition`}>
             <Heart size={20} strokeWidth={1.5} />
             {wishlistCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-silver-light text-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
@@ -149,7 +149,7 @@ export default function Navbar() {
             )}
           </Link>
 
-          <Link to="/cart" className="relative hidden md:block hover:text-white transition">
+          <Link to="/cart" className={`relative hidden md:block ${scrolled ? 'hover:text-gray-600' : 'hover:text-white'} transition`}>
             <ShoppingBag size={20} strokeWidth={1.5} />
             {cartCount > 0 && (
               <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
@@ -158,7 +158,7 @@ export default function Navbar() {
             )}
           </Link>
           <button
-            className="md:hidden transition-colors duration-300 text-white/80 hover:text-white"
+            className={`md:hidden transition-colors duration-300 ${scrolled ? 'text-dark hover:text-gray-600' : 'text-white/80 hover:text-white'}`}
             onClick={() => setMobileMenuOpen(true)}
           >
             <Menu size={24} strokeWidth={1.5} />
