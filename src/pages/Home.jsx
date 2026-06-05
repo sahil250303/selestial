@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Heart, ArrowRight, MapPin, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
 import { mockProducts } from '../data/mockProducts';
@@ -346,49 +346,6 @@ export default function Home() {
               EXPLORE THE HERITAGE
               <ArrowRight size={12} className="group-hover/story:translate-x-1 transition-transform duration-300" />
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Store Locator & Appointment Widgets */}
-      <section className="px-6 lg:px-12 bg-[#000000] border-b border-white/5">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 border border-white/10 my-16 divide-y md:divide-y-0 md:divide-x divide-white/10">
-          {/* Store Locator */}
-          <div className="p-8 md:p-12 flex flex-col justify-between min-h-[220px]">
-            <div>
-              <div className="flex items-center gap-3 text-silver-light mb-4">
-                <MapPin size={20} strokeWidth={1.5} />
-                <h4 className="text-xs font-bold tracking-[0.2em] text-white uppercase">FIND A STORE</h4>
-              </div>
-              <p className="text-silver-dark text-xs tracking-wider leading-relaxed mb-6 max-w-sm">
-                Discover the physical Selestial experience near you. Walk in to explore collections, fit sizes, and speak with store consultants.
-              </p>
-            </div>
-            <a
-              href="#"
-              className="px-6 py-3 border border-white/20 text-white text-center text-[10px] tracking-widest font-bold uppercase rounded-sm hover:bg-white hover:text-black transition-all duration-300 w-fit"
-            >
-              STORE LOCATOR
-            </a>
-          </div>
-
-          {/* Book Appointment */}
-          <div className="p-8 md:p-12 flex flex-col justify-between min-h-[220px]">
-            <div>
-              <div className="flex items-center gap-3 text-silver-light mb-4">
-                <Calendar size={20} strokeWidth={1.5} />
-                <h4 className="text-xs font-bold tracking-[0.2em] text-white uppercase">BOOK AN APPOINTMENT</h4>
-              </div>
-              <p className="text-silver-dark text-xs tracking-wider leading-relaxed mb-6 max-w-sm">
-                Schedule a private online or in-store styling consultation with our certified experts to find the perfect piece or custom set.
-              </p>
-            </div>
-            <a
-              href="#"
-              className="px-6 py-3 border border-white/20 text-white text-center text-[10px] tracking-widest font-bold uppercase rounded-sm hover:bg-white hover:text-black transition-all duration-300 w-fit"
-            >
-              BOOK NOW
-            </a>
           </div>
         </div>
       </section>
