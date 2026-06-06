@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Heart, ShoppingBag, Trash2, ArrowLeft } from 'lucide-react';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../App';
+import { getImageSrcSet, getOptimizedImageUrl } from '../utils/imageUrls.js';
 
 const WishlistPage = () => {
   const { wishlist, removeFromWishlist } = useWishlist();
@@ -53,8 +54,12 @@ const WishlistPage = () => {
               >
                 <div className="relative aspect-square overflow-hidden bg-black/40">
                   <img 
-                    src={product.image || "/api/placeholder/400/400"} 
+                    src={getOptimizedImageUrl(product.image || "/api/placeholder/400/400", { width: 640, quality: 72 })}
+                    srcSet={getImageSrcSet(product.image, [320, 640, 960], { quality: 72 })}
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <button 

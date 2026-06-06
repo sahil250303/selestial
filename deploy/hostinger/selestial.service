@@ -1,0 +1,27 @@
+[Unit]
+Description=Selestial Node/Express server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/selestial
+
+# If you run as a dedicated user, change this:
+User=www-data
+Group=www-data
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+EnvironmentFile=/var/www/selestial/.env
+
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=3
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+

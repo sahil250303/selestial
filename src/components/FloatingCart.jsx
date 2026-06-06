@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import { useCart } from '../App';
 import gsap from 'gsap';
+import { getOptimizedImageUrl } from '../utils/imageUrls.js';
 
 export default function FloatingCart() {
   const { cart } = useCart();
@@ -64,8 +65,10 @@ export default function FloatingCart() {
           {recentItems.map((item, index) => (
             <img 
               key={`${item.id}-${cartCount}`} // Force refresh for GSAP hook on change
-              src={item.image} 
+              src={getOptimizedImageUrl(item.image, { width: 96, quality: 60 })}
               alt={item.name}
+              loading="lazy"
+              decoding="async"
               className="cart-thumbnail w-11 h-11 rounded-full border-2 border-black object-cover bg-white"
               style={{ zIndex: 10 - index }}
             />

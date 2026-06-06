@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+server/uploads/cache/
 *.local
 
 # Editor directories and files
@@ -24,4 +25,8 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Environment files — NEVER commit real secrets
+.env
+.env.*
 .env*.local
