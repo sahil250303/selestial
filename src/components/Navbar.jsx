@@ -5,6 +5,7 @@ import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
 
 export default function Navbar() {
+  // Skip-link target is id="main-content" in App.jsx
   const { cart } = useCart();
   const { wishlist } = useWishlist();
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -57,6 +58,13 @@ export default function Navbar() {
 
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'bg-white shadow-lg py-4' : 'bg-transparent py-6'}`}>
+      {/* Skip to main content — accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:text-xs focus:tracking-widest focus:uppercase focus:rounded"
+      >
+        Skip to main content
+      </a>
       <div className="max-w-7xl mx-auto px-6 lg:px-12 flex justify-between items-center">
 
         {/* Logo */}

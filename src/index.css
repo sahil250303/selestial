@@ -6,6 +6,22 @@
   body {
     @apply bg-dark text-silver-light font-sans antialiased overflow-x-hidden;
   }
+
+  /* Global keyboard-focus indicator — visible only when navigating by keyboard */
+  *:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.55);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
+
+/* Toast fade-in animation */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.25s ease forwards;
 }
 
 .glass-panel {

@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import gsap from 'gsap';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
-import { Heart } from 'lucide-react';
+import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
+import { getImageSrcSet, getOptimizedImageUrl } from '../utils/imageUrls.js';
+import Breadcrumb from '../components/Breadcrumb';
+
+function StarRating({ rating, max = 5, size = 16 }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: max }).map((_, i) => (
+        <Star key={i} size={size} className={i < rating ? 'text-yellow-400' : 'text-white/20'}
+          fill={i < rating ? 'currentColor' : 'none'} />
+      ))}
+    </div>
+  );
+}
 
 export default function ProductDetails() {
   const { id } = useParams();
@@ -14,57 +28,91 @@ export default function ProductDetails() {
   const [accordionOpen, setAccordionOpen] = useState(null);
   const [activeImage, setActiveImage] = useState('');
   const [additionalImages, setAdditionalImages] = useState([]);
-  
+
+  // Reviews state
+  const [reviews, setReviews] = useState([]);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
-  
+
   useEffect(() => {
     fetch(`/api/products/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Not found');
-        return res.json();
-      })
-      .then(data => {
+      .then((res) => { if (!res.ok) throw new Error('Not found'); return res.json(); })
+      .then((data) => {
         if (data.error) throw new Error(data.error);
         setProduct(data);
         setActiveImage(data.image);
-        try {
-          const extra = data.additional_images ? JSON.parse(data.additional_images) : [];
-          setAdditionalImages(extra);
-        } catch (e) {
-          setAdditionalImages([]);
-        }
-        const mappedColors = data.colors ? data.colors.split(',').map(c => c.trim()).filter(Boolean) : ['Silver'];
-        setSelectedColor(mappedColors[0] || 'Silver');
+        try { setAdditionalImages(data.additional_images ? JSON.parse(data.additional_images) : []); }
+        catch { setAdditionalImages([]); }
+        const colors = data.colors ? data.colors.split(',').map((c) => c.trim()).filter(Boolean) : ['Silver'];
+        setSelectedColor(colors[0] || 'Silver');
         setLoading(false);
       })
-      .catch(err => {
-        console.error(err);
-        setLoading(false);
-      });
+      .catch((err) => { console.error(err); setLoading(false); });
+  }, [id]);
+
+  useEffect(() => {
+    fetch(`/api/products/${id}/reviews`)
+      .then((res) => res.json())
+      .then((data) => setReviews(Array.isArray(data) ? data : []))
+      .catch(() => setReviews([]));
   }, [id]);
 
   useEffect(() => {
     if (product) {
-      gsap.fromTo('.pdp-anim', 
-        { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: 'power2.out' }
-      );
+      gsap.fromTo('.pdp-anim', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: 'power2.out' });
     }
   }, [product]);
 
   const handleAddToCart = () => {
-    if (product) {
+    if (product && product.quantity > 0) {
       addToCart({ ...product, size: selectedSize, color: selectedColor });
     }
   };
 
-  const toggleAccordion = (section) => {
-    setAccordionOpen(accordionOpen === section ? null : section);
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch(`/api/products/${id}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewForm),
+      });
+      if (res.ok) {
+        const newReview = await res.json();
+        setReviews((prev) => [{ id: newReview.id, ...reviewForm, date: new Date().toISOString().split('T')[0], customer_name: 'You' }, ...prev]);
+        setReviewSubmitted(true);
+        setShowReviewForm(false);
+      }
+    } catch (_) {}
+    setReviewSubmitting(false);
   };
 
+  const avgRating = reviews.length > 0
+    ? Math.round(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
+    : 5;
+
+  const isOOS = product?.quantity === 0;
+
   if (loading) {
-    return <div className="min-h-screen pt-32 px-6 text-center text-white font-serif text-2xl tracking-widest">Loading...</div>;
+    return (
+      <div className="min-h-screen pt-32 px-6 flex items-center justify-center">
+        <div className="grid grid-cols-2 gap-16 max-w-7xl w-full">
+          <div className="h-[500px] bg-white/10 animate-pulse rounded-xl" />
+          <div className="space-y-4 pt-4">
+            <div className="h-8 bg-white/10 animate-pulse rounded w-3/4" />
+            <div className="h-5 bg-white/10 animate-pulse rounded w-1/4" />
+            <div className="h-4 bg-white/10 animate-pulse rounded w-full mt-8" />
+            <div className="h-4 bg-white/10 animate-pulse rounded w-5/6" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!product) {
@@ -72,189 +120,243 @@ export default function ProductDetails() {
       <div className="min-h-screen pt-32 px-6 text-center text-white font-serif text-2xl tracking-widest">
         Product not found.
         <div className="mt-8">
-          <Link to="/products" className="text-sm font-sans tracking-widest uppercase border-b border-white hover:text-silver hover:border-silver pb-1 transition-all">Back to Collection</Link>
+          <Link to="/products" className="text-sm font-sans tracking-widest uppercase border-b border-white pb-1">Back to Collection</Link>
         </div>
       </div>
     );
   }
 
+  // Build JSON-LD Product schema
+  const productSchema = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    description: product.description,
+    image: product.image,
+    material: '925 Sterling Silver',
+    brand: { '@type': 'Brand', name: 'Selestial' },
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'USD',
+      price: product.price,
+      availability: isOOS ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
+      url: `https://selestial.vercel.app/product/${product.id}`,
+    },
+    aggregateRating: reviews.length > 0 ? {
+      '@type': 'AggregateRating',
+      ratingValue: avgRating,
+      reviewCount: reviews.length,
+    } : undefined,
+  });
+
   return (
     <div className="pt-32 px-6 lg:px-12 max-w-7xl mx-auto min-h-screen relative z-10 pb-20">
-      <div className="flex flex-col lg:flex-row gap-16">
-        
-        {/* Left: Image Gallery */}
+      <Helmet>
+        <title>{product.name} | Selestial</title>
+        <meta name="description" content={product.description} />
+        <link rel="canonical" href={`https://selestial.vercel.app/product/${product.id}`} />
+        <meta property="og:title" content={`${product.name} | Selestial`} />
+        <meta property="og:description" content={product.description} />
+        <meta property="og:image" content={product.image} />
+        <meta property="og:type" content="product" />
+        <meta property="og:url" content={`https://selestial.vercel.app/product/${product.id}`} />
+        <script type="application/ld+json">{productSchema}</script>
+      </Helmet>
+
+      <Breadcrumb items={[
+        { label: 'Home', href: '/' },
+        { label: 'Collection', href: '/products' },
+        { label: product.category?.charAt(0).toUpperCase() + product.category?.slice(1), href: `/products?cat=${product.category}` },
+        { label: product.name },
+      ]} />
+
+      <div className="flex flex-col lg:flex-row gap-16 mt-4">
+        {/* Image Gallery */}
         <div className="w-full lg:w-1/2 pdp-anim flex flex-col md:flex-row gap-6">
-          {/* Thumbnails */}
           {additionalImages.length > 0 && (
             <div className="flex md:flex-col gap-4 order-2 md:order-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
               {[product.image, ...additionalImages].map((img, idx) => (
-                <button 
-                  key={idx}
-                  onClick={() => setActiveImage(img)}
-                  className={`w-20 h-20 shrink-0 border transition-all ${activeImage === img ? 'border-white bg-white/5' : 'border-white/10 hover:border-white/30'}`}
-                >
-                  <img src={img} alt={`${product.name} ${idx}`} className="w-full h-full object-cover" />
+                <button key={idx} onClick={() => setActiveImage(img)}
+                  aria-label={`View image ${idx + 1}`}
+                  className={`w-20 h-20 shrink-0 border transition-all ${activeImage === img ? 'border-white' : 'border-white/10 hover:border-white/30'}`}>
+                  <img src={getOptimizedImageUrl(img, { width: 160, quality: 60 })} alt={`${product.name} view ${idx + 1}`}
+                    loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
           )}
-          
           <div className="flex-1 order-1 md:order-2">
             <div className="glass-panel overflow-hidden border border-white/10 p-2 relative group">
-              <div className="absolute inset-0 bg-dark/10 group-hover:bg-transparent transition-all z-10"></div>
-              <img 
-                src={activeImage} 
-                alt={product.name} 
-                className="w-full h-auto max-h-[800px] object-cover rounded-sm object-center"
+              {isOOS && (
+                <div className="absolute top-4 left-4 z-20 bg-black/80 text-white text-[10px] tracking-widest uppercase px-3 py-1 font-bold">
+                  Out of Stock
+                </div>
+              )}
+              <img
+                src={getOptimizedImageUrl(activeImage, { width: 1200, quality: 82 })}
+                srcSet={getImageSrcSet(activeImage, [640, 960, 1200, 1600], { quality: 82 })}
+                sizes="(min-width:1024px) 50vw, 100vw"
+                alt={product.name}
+                fetchPriority="high"
+                decoding="async"
+                className="w-full h-auto max-h-[800px] object-cover rounded-sm"
               />
             </div>
           </div>
         </div>
 
-        {/* Right: Product Info */}
+        {/* Product Info */}
         <div className="w-full lg:w-1/2 pdp-anim flex flex-col pt-4">
           <div className="glass-panel p-8 lg:p-10">
-            <div className="mb-2">
-              <h1 className="font-serif text-4xl text-white tracking-wider uppercase leading-tight">{product.name}</h1>
-              {product.tagline && <p className="text-silver italic tracking-wide text-sm mt-2">{product.tagline}</p>}
-            </div>
-            <div className="mb-4">
-              <p className="text-xl text-silver-light tracking-widest">${product.price.toFixed(2)}</p>
-              {product.style_type && <p className="text-[10px] text-silver-dark uppercase tracking-widest mt-2 border border-white/10 inline-block px-3 py-1 bg-white/5">{product.style_type}</p>}
-            </div>
-          
-          <div className="flex items-center gap-1 mb-8">
-            {[...Array(5)].map((_, i) => (
-              <svg key={i} className={`w-4 h-4 ${i < 4 ? 'text-yellow-500' : 'text-white/20'}`} fill="currentColor" viewBox="0 0 20 20">
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-            ))}
-            <span className="text-silver-dark text-xs ml-2 tracking-widest uppercase mt-0.5">22 reviews</span>
-          </div>
+            <h1 className="font-serif text-4xl text-white tracking-wider uppercase leading-tight mb-2">{product.name}</h1>
+            {product.tagline && <p className="text-silver italic tracking-wide text-sm mb-4">{product.tagline}</p>}
 
-          {/* Color Selector */}
-          <div className="mb-6 border-b border-white/10 pb-6">
-            <p className="text-xs text-white uppercase tracking-widest mb-3">Color: <span className="text-silver ml-1">{selectedColor}</span></p>
-            <div className="flex gap-3">
-              {(product.colors ? product.colors.split(',').map(c => c.trim()).filter(Boolean) : ['Silver']).map(c => {
-                const colorGradients = {
-                  Silver: 'from-gray-200 to-gray-400',
-                  Black: 'from-gray-700 to-gray-900',
-                  Obsidian: 'from-neutral-800 to-black',
-                };
-                const mapping = colorGradients[c] || 'from-gray-400 to-gray-500';
-                return (
-                  <button 
-                    key={c}
-                    onClick={() => setSelectedColor(c)}
-                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${selectedColor === c ? 'border-white' : 'border-transparent'}`}
-                    aria-label={c}
-                  >
-                    <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${mapping} border border-black/20`}></div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Size Indicator */}
-          <div className="mb-8">
-            <div className="flex justify-between items-end mb-3">
-              <p className="text-xs text-white uppercase tracking-widest">Size: <span className="text-silver ml-1">Free Size</span></p>
-            </div>
-          </div>
-
-          <div className="flex gap-4">
-            <button 
-              onClick={handleAddToCart}
-              disabled={product.quantity === 0}
-              className={`flex-[4] py-4 tracking-widest text-sm uppercase transition-all flex items-center justify-center gap-2 font-medium ${product.quantity > 0 ? 'bg-white text-dark hover:bg-silver-light' : 'bg-white/10 text-white/40 cursor-not-allowed border border-white/10'}`}
-            >
-              {product.quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
-            </button>
-            <button 
-              onClick={() => toggleWishlist(product)}
-              className={`flex-1 flex items-center justify-center border transition-all ${isInWishlist(product.id) ? 'bg-red-500 border-red-500 text-white' : 'bg-white/5 border-white/20 text-white hover:bg-white/10 hover:border-white/40'}`}
-              title={isInWishlist(product.id) ? "Remove from Wishlist" : "Add to Wishlist"}
-            >
-              <Heart size={20} fill={isInWishlist(product.id) ? "currentColor" : "none"} />
-            </button>
-          </div>
-
-          {/* Stock Indicator */}
-          <div className="mt-4 mb-8 space-y-2 text-xs tracking-widest">
-            {product.quantity > 0 ? (
-              <p className="text-green-400 flex items-center gap-2">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                In Stock - {product.quantity} units available
+            <div className="flex items-center gap-3 mb-4">
+              <p className={`text-xl tracking-widest ${isOOS ? 'text-red-400' : 'text-silver-light'}`}>
+                {isOOS ? 'Out of Stock' : `$${Number(product.price).toFixed(2)}`}
               </p>
-            ) : (
-              <p className="text-red-400 flex items-center gap-2">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                Currently Out of Stock
-              </p>
+            </div>
+
+            {/* Rating summary */}
+            <div className="flex items-center gap-2 mb-6">
+              <StarRating rating={avgRating} />
+              <span className="text-silver-dark text-xs tracking-widest uppercase">
+                {reviews.length > 0 ? `${avgRating}/5 · ${reviews.length} review${reviews.length !== 1 ? 's' : ''}` : 'Be the first to review'}
+              </span>
+              <Link to="/size-guide" className="ml-auto text-[10px] tracking-widest uppercase text-silver-dark hover:text-white border-b border-silver-dark/30 hover:border-white transition-colors">
+                Size Guide
+              </Link>
+            </div>
+
+            {/* Color selector */}
+            {product.colors && (
+              <div className="mb-6 border-b border-white/10 pb-6">
+                <p className="text-xs text-white uppercase tracking-widest mb-3">Color: <span className="text-silver ml-1">{selectedColor}</span></p>
+                <div className="flex gap-3">
+                  {product.colors.split(',').map((c) => c.trim()).filter(Boolean).map((c) => {
+                    const map = { Silver: 'from-gray-200 to-gray-400', Black: 'from-gray-700 to-gray-900', Obsidian: 'from-neutral-800 to-black' };
+                    return (
+                      <button key={c} onClick={() => setSelectedColor(c)} aria-label={`Select colour ${c}`}
+                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${selectedColor === c ? 'border-white' : 'border-transparent'}`}>
+                        <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${map[c] || 'from-gray-400 to-gray-500'} border border-black/20`} />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
-            <p className="text-silver flex items-center gap-2">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              Easy Returns & Exchanges
+
+            {/* Add to cart */}
+            <div className="flex gap-4 mb-4">
+              <button onClick={handleAddToCart} disabled={isOOS}
+                className={`flex-[4] py-4 tracking-widest text-sm uppercase transition-all font-medium ${!isOOS ? 'bg-white text-dark hover:bg-silver-light' : 'bg-white/10 text-white/40 cursor-not-allowed border border-white/10'}`}>
+                {isOOS ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+              <button onClick={() => toggleWishlist(product)} aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                className={`flex-1 flex items-center justify-center border transition-all ${isInWishlist(product.id) ? 'bg-red-500 border-red-500 text-white' : 'bg-white/5 border-white/20 text-white hover:bg-white/10'}`}>
+                <Heart size={20} fill={isInWishlist(product.id) ? 'currentColor' : 'none'} />
+              </button>
+            </div>
+
+            <p className={`text-xs tracking-widest mb-6 ${!isOOS ? 'text-green-400' : 'text-red-400'}`}>
+              {!isOOS ? `✓ In Stock — ${product.quantity} available` : '✕ Currently Out of Stock'}
             </p>
-          </div>
 
-          {/* Value Props */}
-          <div className="mb-8 border-t border-b border-white/10 py-6">
-            <h3 className="text-sm text-white tracking-widest uppercase mb-4">Our materials ensure Selestial will last a lifetime.</h3>
-            <ul className="space-y-4">
-              <li className="flex gap-4">
-                <div className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center shrink-0 bg-white/5">
-                  <span className="text-[14px]">✨</span>
-                </div>
-                <div>
-                  <p className="text-xs text-white uppercase tracking-widest mb-1">Lifetime Guarantee</p>
-                  <p className="text-xs text-silver-dark leading-relaxed">Our premium materials ensure Selestial jewelry will last you a lifetime.</p>
-                </div>
-              </li>
-              <li className="flex gap-4">
-                <div className="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center shrink-0 bg-white/5">
-                  <span className="text-[14px]">💧</span>
-                </div>
-                <div>
-                  <p className="text-xs text-white uppercase tracking-widest mb-1">Water, Heat & Sweat-Proof</p>
-                  <p className="text-xs text-silver-dark leading-relaxed">Hit the gym, go for a run or even take a shower.</p>
-                </div>
-              </li>
-            </ul>
-          </div>
-
-          {/* Accordions */}
-          <div className="space-y-2">
-            {[
-              { id: 'details', title: 'Product details', content: product.description },
-              ...(product.details ? [{ id: 'specs', title: 'Specifications & Details', content: product.details }] : []),
-              { id: 'materials', title: 'Our Materials', content: 'Crafted with premium 316L stainless steel and rhodium plating for ultimate durability.' },
-              { id: 'warranty', title: 'Lifetime Warranty', content: 'All pieces come with a lifetime warranty against fading and tarnishing.' },
-              { id: 'shipping', title: 'Shipping & Returns', content: 'Free worldwide shipping on orders over $100. Easy 30-day returns.' },
-            ].map(section => (
-              <div key={section.id} className="border border-white/10 glass-panel bg-black/20">
-                <button 
-                  onClick={() => toggleAccordion(section.id)}
-                  className="w-full px-6 py-4 flex justify-between items-center text-xs tracking-widest uppercase text-white hover:bg-white/5 transition-colors focus:outline-none"
-                >
-                  {section.title}
-                  <span className="text-silver text-lg leading-none font-light">{accordionOpen === section.id ? '−' : '+'}</span>
-                </button>
-                <div 
-                  className={`overflow-hidden transition-all duration-300 ${accordionOpen === section.id ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0'}`}
-                >
-                  <div className="px-6 pb-6 text-xs text-silver leading-relaxed font-light">
-                    {section.content}
+            {/* Accordions */}
+            <div className="space-y-2">
+              {[
+                { id: 'details', title: 'Product Description', content: product.description },
+                ...(product.details ? [{ id: 'specs', title: 'Specifications & Details', content: product.details }] : []),
+                { id: 'materials', title: 'Materials', content: 'Crafted from premium 925 sterling silver (92.5% pure silver). Hallmarked for authenticity. Tarnish-resistant with proper care — see our Care Guide.' },
+                { id: 'shipping', title: 'Shipping & Returns', content: 'Free standard shipping on orders over $100. Express options available. Easy 30-day returns. See our Shipping & Returns page for full details.' },
+              ].map((s) => (
+                <div key={s.id} className="border border-white/10 bg-black/20 rounded-sm">
+                  <button onClick={() => setAccordionOpen(accordionOpen === s.id ? null : s.id)}
+                    className="w-full px-6 py-4 flex justify-between items-center text-xs tracking-widest uppercase text-white hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    aria-expanded={accordionOpen === s.id}>
+                    {s.title}
+                    {accordionOpen === s.id ? <ChevronUp size={14} className="text-silver-dark" /> : <ChevronDown size={14} className="text-silver-dark" />}
+                  </button>
+                  <div className={`overflow-hidden transition-all duration-300 ${accordionOpen === s.id ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <p className="px-6 pb-6 text-xs text-silver leading-relaxed font-light">{s.content}</p>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Reviews Section ──────────────────────────────────────────────────── */}
+      <div className="mt-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="font-serif text-2xl text-white tracking-widest uppercase">
+            Customer Reviews {reviews.length > 0 && <span className="text-silver-dark text-sm ml-2">({reviews.length})</span>}
+          </h2>
+          {!reviewSubmitted && (
+            <button onClick={() => setShowReviewForm(!showReviewForm)}
+              className="px-6 py-2 text-xs font-bold tracking-widest border border-white/20 text-white hover:bg-white/5 uppercase transition-colors rounded-sm">
+              {showReviewForm ? 'Cancel' : 'Write a Review'}
+            </button>
+          )}
+        </div>
+
+        {/* Review form */}
+        {showReviewForm && (
+          <form onSubmit={handleReviewSubmit} className="glass-panel p-8 mb-8">
+            <h3 className="font-serif text-white tracking-widest uppercase text-sm mb-6">Your Review</h3>
+            <div className="mb-4">
+              <p className="text-xs uppercase tracking-widest text-silver mb-3">Rating</p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button key={star} type="button" onClick={() => setReviewForm((f) => ({ ...f, rating: star }))}
+                    aria-label={`Rate ${star} star${star !== 1 ? 's' : ''}`}>
+                    <Star size={24} className={star <= reviewForm.rating ? 'text-yellow-400' : 'text-white/20'}
+                      fill={star <= reviewForm.rating ? 'currentColor' : 'none'} />
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mb-6">
+              <label className="block text-xs uppercase tracking-widest text-silver mb-2">Comment</label>
+              <textarea required rows={4} value={reviewForm.comment} onChange={(e) => setReviewForm((f) => ({ ...f, comment: e.target.value }))}
+                placeholder="Share your experience with this piece..."
+                className="w-full bg-dark/50 border border-white/10 p-3 text-white text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/50 transition-colors rounded-sm resize-none" />
+            </div>
+            <button type="submit" disabled={reviewSubmitting}
+              className="px-8 py-3 text-xs font-bold tracking-widest bg-white text-black hover:bg-silver-light uppercase transition-colors rounded-sm disabled:opacity-70">
+              {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+            </button>
+          </form>
+        )}
+
+        {reviewSubmitted && (
+          <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-sm p-4 rounded-sm mb-8 tracking-wider">
+            Thank you for your review!
+          </div>
+        )}
+
+        {/* Reviews list */}
+        {reviews.length > 0 ? (
+          <div className="space-y-6">
+            {reviews.map((r) => (
+              <div key={r.id} className="glass-panel p-6">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <p className="text-white text-sm font-medium tracking-wide">{r.customer_name}</p>
+                    <p className="text-silver-dark text-[10px] tracking-widest mt-0.5">{r.date}</p>
+                  </div>
+                  <StarRating rating={r.rating} size={14} />
+                </div>
+                <p className="text-silver-dark text-sm leading-relaxed font-light">{r.comment}</p>
               </div>
             ))}
           </div>
-
+        ) : (
+          <div className="text-center py-12 border border-white/10 rounded-xl">
+            <p className="text-silver-dark text-sm tracking-wider">No reviews yet. Be the first to share your experience.</p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

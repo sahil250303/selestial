@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
@@ -59,19 +60,43 @@ export default function Home() {
     setCurrentHero((prev) => (prev + 1) % heroSlides.length);
   };
 
-  // Newsletter Success State
+  // Newsletter — calls real API, sends genuine discount code
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
-  const handleSubscribe = (e) => {
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribeMsg, setSubscribeMsg] = useState('');
+  const handleSubscribe = async (e) => {
     e.preventDefault();
-    if (email.trim()) {
+    if (!email.trim()) return;
+    setSubscribing(true);
+    try {
+      const res = await fetch('/api/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const data = await res.json();
+      setSubscribeMsg(data.message || 'Welcome to the Universe of Silver. Check your inbox.');
       setSubscribed(true);
       setEmail('');
+    } catch (_) {
+      setSubscribeMsg('Something went wrong. Please try again.');
     }
+    setSubscribing(false);
   };
 
   return (
     <div className="w-full bg-[#000000] text-white">
+      <Helmet>
+        <title>Selestial | Universe of Silver</title>
+        <meta name="description" content="Premium 925 sterling silver jewellery — rings, chains, bracelets and earrings crafted with celestial precision. Free shipping over $100." />
+        <link rel="canonical" href="https://selestial.vercel.app/" />
+        <meta property="og:title" content="Selestial | Universe of Silver" />
+        <meta property="og:description" content="Premium 925 sterling silver jewellery crafted with celestial precision." />
+        <meta property="og:image" content="https://selestial.vercel.app/hero_1.png" />
+        <meta property="og:url" content="https://selestial.vercel.app/" />
+        <meta property="og:type" content="website" />
+      </Helmet>
       {/* Announcement Bar */}
       <div className="w-full bg-[#0d0d0d] border-b border-white/5 py-3 text-center transition-all duration-500">
         <div className="max-w-7xl mx-auto px-4 overflow-hidden relative h-4 flex items-center justify-center">
@@ -230,7 +255,7 @@ export default function Home() {
               <img
                 src="/split_1.png"
                 alt="Stellar Chains Campaign"
-                className="w-full h-full object-cover transform group-hover:scale-102 transition-transform duration-700 ease-out"
+                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                 loading="lazy"
               />
             </div>
@@ -256,7 +281,7 @@ export default function Home() {
               <img
                 src="/split_2.png"
                 alt="Nova Cuffs Campaign"
-                className="w-full h-full object-cover transform group-hover:scale-102 transition-transform duration-700 ease-out"
+                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                 loading="lazy"
               />
             </div>
@@ -385,7 +410,7 @@ export default function Home() {
 
           {subscribed ? (
             <div className="text-xs tracking-widest uppercase font-bold text-silver-light border border-white/20 p-4 max-w-md mx-auto">
-              Welcome to the Universe of Silver. Your 10% code has been sent.
+              {subscribeMsg || 'Welcome to the Universe of Silver. Check your inbox.'}
             </div>
           ) : (
             <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
@@ -395,13 +420,14 @@ export default function Home() {
                 placeholder="ENTER YOUR EMAIL..."
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 bg-transparent border-b border-white/20 py-2.5 text-xs text-white text-center sm:text-left focus:border-white outline-none tracking-widest uppercase"
+                className="flex-1 bg-transparent border-b border-white/20 py-2.5 text-xs text-white text-center sm:text-left focus:border-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 tracking-widest uppercase"
               />
               <button
                 type="submit"
-                className="px-8 py-3 text-xs font-bold tracking-widest bg-white text-black hover:bg-silver-light uppercase transition-colors duration-300 rounded-sm"
+                disabled={subscribing}
+                className="px-8 py-3 text-xs font-bold tracking-widest bg-white text-black hover:bg-silver-light uppercase transition-colors duration-300 rounded-sm disabled:opacity-70"
               >
-                JOIN NOW
+                {subscribing ? 'JOINING...' : 'JOIN NOW'}
               </button>
             </form>
           )}

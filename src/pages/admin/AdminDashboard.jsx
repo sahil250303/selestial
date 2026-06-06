@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
+import { getOptimizedImageUrl } from '../../utils/imageUrls.js';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('products');
@@ -346,7 +347,13 @@ export default function AdminDashboard() {
                         <td className="py-4 pr-4 align-middle">#{p.id}</td>
                         <td className="py-4 px-4 align-middle">
                           {p.image ? (
-                            <img src={p.image} alt={p.name} className="w-12 h-12 object-cover object-center rounded border border-white/10 opacity-70 group-hover:opacity-100 transition-opacity" />
+                            <img
+                              src={getOptimizedImageUrl(p.image, { width: 96, quality: 60 })}
+                              alt={p.name}
+                              loading="lazy"
+                              decoding="async"
+                              className="w-12 h-12 object-cover object-center rounded border border-white/10 opacity-70 group-hover:opacity-100 transition-opacity"
+                            />
                           ) : (
                             <div className="w-12 h-12 bg-white/5 border border-white/10 rounded flex items-center justify-center text-[8px] text-silver uppercase tracking-widest text-center leading-tight">No<br />Img</div>
                           )}
@@ -443,7 +450,13 @@ export default function AdminDashboard() {
                       <span className="text-silver text-sm uppercase tracking-widest">Uploading...</span>
                     ) : newProduct.image ? (
                       <div className="flex flex-col items-center">
-                        <img src={newProduct.image} alt="Preview" className="h-32 object-cover mb-4" />
+                        <img
+                          src={getOptimizedImageUrl(newProduct.image, { width: 320, quality: 70 })}
+                          alt="Preview"
+                          loading="lazy"
+                          decoding="async"
+                          className="h-32 object-cover mb-4"
+                        />
                         <span className="text-silver text-xs uppercase tracking-widest">Click or drag to replace image</span>
                       </div>
                     ) : (
@@ -463,7 +476,13 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-4">
                     {newProduct.additional_images && newProduct.additional_images.map((img, idx) => (
                       <div key={idx} className="relative group aspect-square border border-white/10 rounded overflow-hidden bg-white/5">
-                        <img src={img} alt={`Additional ${idx}`} className="w-full h-full object-cover" />
+                        <img
+                          src={getOptimizedImageUrl(img, { width: 240, quality: 68 })}
+                          alt={`Additional ${idx}`}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full object-cover"
+                        />
                         <button 
                           type="button"
                           onClick={() => removeAdditionalImage(idx)}
@@ -586,7 +605,13 @@ export default function AdminDashboard() {
                                         {parsedItems.map((item, idx) => (
                                           <div key={idx} className="flex gap-4 items-center mb-6 last:mb-0">
                                             <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-sm overflow-hidden shrink-0">
-                                              <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                                              <img
+                                                src={getOptimizedImageUrl(item.image, { width: 128, quality: 64 })}
+                                                alt={item.name}
+                                                loading="lazy"
+                                                decoding="async"
+                                                className="w-full h-full object-cover"
+                                              />
                                             </div>
                                             <div>
                                               <p className="font-serif text-white tracking-widest">{item.name}</p>

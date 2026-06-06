@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../App';
 import { Trash2, ArrowRight } from 'lucide-react';
+import { getOptimizedImageUrl } from '../utils/imageUrls.js';
 
 export default function CartPage() {
   const { cart, removeFromCart } = useCart();
@@ -24,7 +25,13 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-6">
             {cart.map((item) => (
               <div key={item.cartItemId} className="glass-panel p-6 flex flex-col md:flex-row items-center gap-6">
-                <img src={item.image} alt={item.name} className="w-32 h-32 object-cover rounded-sm" />
+                <img
+                  src={getOptimizedImageUrl(item.image, { width: 256, quality: 70 })}
+                  alt={item.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-32 h-32 object-cover rounded-sm"
+                />
                 <div className="flex-1 text-center md:text-left">
                   <h3 className="font-serif tracking-widest text-lg text-white">{item.name}</h3>
                   <div className="text-silver text-[10px] tracking-widest uppercase mt-2 space-y-1">
