@@ -154,4 +154,9 @@ export const verifyOtp = (req, res) => {
       stmt.run(name, phone, 'otp', date, function(insertErr) {
         if (insertErr) return res.status(500).json({ error: 'Database error creating customer' });
         const token = jwt.sign({ id: this.lastID, phone }, JWT_SECRET, { expiresIn: '7d' });
-        res.status(201).json({ token, message: 'Sig
+        res.status(201).json({ token, message: 'Signup successful', user: { name, phone } });
+      });
+      stmt.finalize();
+    });
+  });
+};
