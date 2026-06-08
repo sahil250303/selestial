@@ -27,30 +27,17 @@ const Auth = () => {
     setError('');
   };
 
-  // ── Persist auth state helper ───────────────────────────────────────────────
-  // Routes through the shared session util so the three localStorage keys stay
-  // in sync and an incomplete backend payload throws here (caught below) instead
-  // of writing "undefined" into storage and blanking the Profile page later.
   const persistAuth = (data, redirectPath) => {
     setCustomerSession(data);
     navigate(redirectPath || location.state?.from || '/');
   };
 
-  // ── Real Google OAuth (uses @react-oauth/google) ───────────────────────────
-  // `prompt: 'select_account'` forces Google to show the account-chooser list on
-  // every click instead of silently reusing the last session — this is the
-  // behaviour requested (pick your email from a list). `onNonOAuthError` fires
-  // when the popup is closed/blocked, so the button never gets stuck on
-  // "Processing…".
   const googleLogin = useGoogleLogin({
     flow: 'implicit',
     prompt: 'select_account',
     onSuccess: async (tokenResponse) => {
-      // setLoading(true) already fired on click; keep it on through the exchange.
       setError('');
       try {
-        // Exchange the Google access token for our app JWT via the backend,
-        // which re-verifies the token against Google's userinfo endpoint.
         const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
         });
@@ -63,7 +50,6 @@ const Auth = () => {
           body: JSON.stringify({ credential: tokenResponse.access_token, googleUser }),
         });
         const data = await res.json();
-
         if (!res.ok) throw new Error(data.error || 'Google authentication failed');
         persistAuth(data);
       } catch (err) {
@@ -77,7 +63,6 @@ const Auth = () => {
       setLoading(false);
     },
     onNonOAuthError: () => {
-      // Popup dismissed or blocked — reset the button quietly.
       setLoading(false);
     },
   });
@@ -92,7 +77,6 @@ const Auth = () => {
     googleLogin();
   };
 
-  // ── Send OTP ────────────────────────────────────────────────────────────────
   const handleSendOTP = async (e) => {
     e.preventDefault();
     if (!formData.phone) { setError('Please enter a valid phone number'); return; }
@@ -114,12 +98,10 @@ const Auth = () => {
     }
   };
 
-  // ── Email / OTP submit ──────────────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       let endpoint = '/api/auth/customer/login';
       let payload = { email: formData.email, password: formData.password };
@@ -157,147 +139,219 @@ const Auth = () => {
     setFormData({ name: '', email: '', phone: '', password: '', otp: '' });
   };
 
-  return (
-    <div className="min-h-screen pt-24 pb-12 px-4 flex items-center justify-center relative z-10">
-      <div className="max-w-md w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-blue-500/10 blur-3xl -z-10 rounded-full mix-blend-screen" />
+  /* ── shared input style ─────────────────────────────────────────────────── */
+  const inputCls =
+    'w-full bg-transparent border-b border-white/20 py-3 pl-8 pr-4 text-white text-sm tracking-wider placeholder-white/30 focus:outline-none focus:border-white/60 transition-colors duration-200';
 
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-light tracking-widest text-white mb-2">
-            {isLogin ? 'WELCOME BACK' : 'CREATE ACCOUNT'}
-          </h2>
-          <p className="text-gray-400 text-sm">
-            {isLogin ? 'Log in to your Selestial account' : 'Join Selestial for exclusive access'}
+  return (
+    <div className="min-h-screen flex items-stretch relative z-10 overflow-hidden">
+
+      {/* ── Left panel — editorial hero ──────────────────────────────────────── */}
+      <div className="hidden lg:flex lg:w-1/2 relative items-end p-16 overflow-hidden">
+        {/* Background image layer */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url(/hero_2.png)' }}
+        />
+        {/* Dark gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
+
+        <div className="relative z-10">
+          <p className="text-[10px] tracking-[0.4em] text-white/40 uppercase mb-3 font-sans">
+            New Collection
+          </p>
+          <h1 className="font-serif text-5xl xl:text-6xl text-white leading-[1.08] tracking-wider mb-6">
+            ELEVATED<br />CLASSICS
+          </h1>
+          <div className="w-12 h-[1px] bg-white/30 mb-6" />
+          <p className="text-white/50 text-sm tracking-[0.15em] uppercase font-sans leading-relaxed max-w-xs">
+            925 Sterling Silver<br />Crafted with celestial precision
           </p>
         </div>
+      </div>
 
-        {/* Auth method toggle */}
-        <div className="flex bg-black/40 rounded-lg p-1 mb-6 border border-white/5">
-          <button
-            onClick={() => { setAuthMethod('email'); setStep(1); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-300 flex items-center justify-center gap-2 ${authMethod === 'email' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
-          >
-            <Mail size={16} /> Email
-          </button>
-          <button
-            onClick={() => { setAuthMethod('phone'); setStep(1); setError(''); setSuccess(''); }}
-            className={`flex-1 py-2 text-sm font-medium rounded-md transition-all duration-300 flex items-center justify-center gap-2 ${authMethod === 'phone' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
-          >
-            <Phone size={16} /> Phone (OTP)
-          </button>
-        </div>
+      {/* ── Right panel — form ───────────────────────────────────────────────── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center px-8 py-24 bg-[#080808]">
+        <div className="w-full max-w-sm">
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-sm p-3 rounded-lg mb-4">
-            {error}
+          {/* Brand mark (mobile) */}
+          <div className="lg:hidden text-center mb-10">
+            <img src="/SVG/white%20logo.svg" alt="Selestial" className="h-10 mx-auto mb-4" />
+            <div className="w-8 h-[1px] bg-white/20 mx-auto" />
           </div>
-        )}
-        {success && (
-          <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-sm p-3 rounded-lg mb-4">
-            {success}
-          </div>
-        )}
 
-        <form onSubmit={authMethod === 'phone' && step === 1 ? handleSendOTP : handleSubmit} className="space-y-4">
-          {/* Name field (signup only) */}
-          {!isLogin && step === 1 && (
-            <div className="relative">
-              <User className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input type="text" name="name" value={formData.name} onChange={handleChange}
-                placeholder="Full Name" required
-                className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/30 focus:bg-black/50 transition-all" />
+          {/* Heading */}
+          <div className="mb-10">
+            <p className="text-[10px] tracking-[0.4em] text-white/30 uppercase font-sans mb-3">
+              {isLogin ? 'Welcome back' : 'New member'}
+            </p>
+            <h2 className="font-serif text-4xl text-white tracking-widest">
+              {isLogin ? 'SIGN IN' : 'CREATE\nACCOUNT'}
+            </h2>
+            <div className="mt-4 w-10 h-[1px] bg-white/20" />
+          </div>
+
+          {/* Method toggle */}
+          <div className="flex gap-6 mb-8 border-b border-white/10 pb-1">
+            {['email', 'phone'].map(m => (
+              <button
+                key={m}
+                onClick={() => { setAuthMethod(m); setStep(1); setError(''); setSuccess(''); }}
+                className={`pb-3 text-[10px] tracking-[0.3em] uppercase font-sans transition-all duration-200 relative ${
+                  authMethod === m ? 'text-white' : 'text-white/30 hover:text-white/60'
+                }`}
+              >
+                {m === 'email' ? 'Email' : 'Phone / OTP'}
+                {authMethod === m && (
+                  <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Alerts */}
+          {error && (
+            <div className="border border-red-500/20 bg-red-500/5 text-red-400 text-xs tracking-wider p-3 rounded mb-6 font-sans">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="border border-green-500/20 bg-green-500/5 text-green-400 text-xs tracking-wider p-3 rounded mb-6 font-sans">
+              {success}
             </div>
           )}
 
-          {/* Email form */}
-          {authMethod === 'email' && (
+          {/* Form */}
+          <form onSubmit={authMethod === 'phone' && step === 1 ? handleSendOTP : handleSubmit} className="space-y-7">
+
+            {/* Name (signup) */}
+            {!isLogin && step === 1 && (
+              <div className="relative">
+                <label className="block text-[9px] tracking-[0.35em] uppercase text-white/30 mb-2 font-serif">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-0 top-1/2 -translate-y-1/2 text-white/25" size={14} />
+                  <input type="text" name="name" value={formData.name} onChange={handleChange}
+                    placeholder="Your name" required className={inputCls} />
+                </div>
+              </div>
+            )}
+
+            {/* Email fields */}
+            {authMethod === 'email' && (
+              <>
+                <div className="relative">
+                  <label className="block text-[9px] tracking-[0.35em] uppercase text-white/30 mb-2 font-serif">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-0 top-1/2 -translate-y-1/2 text-white/25" size={14} />
+                    <input type="email" name="email" value={formData.email} onChange={handleChange}
+                      placeholder="you@example.com" required className={inputCls} />
+                  </div>
+                </div>
+                <div className="relative">
+                  <label className="block text-[9px] tracking-[0.35em] uppercase text-white/30 mb-2 font-serif">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-0 top-1/2 -translate-y-1/2 text-white/25" size={14} />
+                    <input type="password" name="password" value={formData.password} onChange={handleChange}
+                      placeholder="••••••••" required className={inputCls} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Phone */}
+            {authMethod === 'phone' && step === 1 && (
+              <div className="relative">
+                <label className="block text-[9px] tracking-[0.35em] uppercase text-white/30 mb-2 font-serif">
+                  Mobile Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-0 top-1/2 -translate-y-1/2 text-white/25" size={14} />
+                  <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
+                    placeholder="+1 234 567 8900" required className={inputCls} />
+                </div>
+              </div>
+            )}
+
+            {/* OTP */}
+            {authMethod === 'phone' && step === 2 && (
+              <div className="relative">
+                <label className="block text-[9px] tracking-[0.35em] uppercase text-white/30 mb-2 font-serif">
+                  Verification Code
+                </label>
+                <div className="relative">
+                  <CheckCircle className="absolute left-0 top-1/2 -translate-y-1/2 text-white/25" size={14} />
+                  <input type="text" name="otp" value={formData.otp} onChange={handleChange}
+                    placeholder="· · · · · ·" required maxLength="6" inputMode="numeric"
+                    className={`${inputCls} text-center tracking-[1.2em] font-mono text-xl pl-0`} />
+                </div>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-8 flex items-center justify-between px-6 py-4 bg-white text-black group hover:bg-white/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <span className="font-serif text-sm tracking-[0.25em] uppercase">
+                {loading ? 'Processing...' : (
+                  authMethod === 'phone' && step === 1 ? 'Send OTP' :
+                  isLogin ? 'Sign In' : 'Create Account'
+                )}
+              </span>
+              {!loading && (
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform duration-200" />
+              )}
+            </button>
+          </form>
+
+          {/* Google */}
+          {authMethod === 'email' && googleEnabled && (
             <>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input type="email" name="email" value={formData.email} onChange={handleChange}
-                  placeholder="Email Address" required
-                  className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/30 focus:bg-black/50 transition-all" />
+              <div className="flex items-center gap-4 my-8">
+                <div className="flex-1 h-[1px] bg-white/10" />
+                <span className="text-[9px] tracking-[0.3em] uppercase text-white/20 font-sans">or</span>
+                <div className="flex-1 h-[1px] bg-white/10" />
               </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-                <input type="password" name="password" value={formData.password} onChange={handleChange}
-                  placeholder="Password" required
-                  className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/30 focus:bg-black/50 transition-all" />
-              </div>
+              <button
+                type="button"
+                onClick={handleGoogleClick}
+                disabled={loading}
+                className="w-full border border-white/10 hover:border-white/25 text-white/60 hover:text-white py-3.5 transition-all duration-200 flex items-center justify-center gap-3 font-sans text-xs tracking-[0.2em] uppercase disabled:opacity-50"
+              >
+                {loading ? <span>Processing...</span> : (
+                  <>
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                    </svg>
+                    Continue with Google
+                  </>
+                )}
+              </button>
             </>
           )}
 
-          {/* Phone form */}
-          {authMethod === 'phone' && step === 1 && (
-            <div className="relative">
-              <Phone className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input type="tel" name="phone" value={formData.phone} onChange={handleChange}
-                placeholder="Mobile Number (with country code)" required
-                className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/30 focus:bg-black/50 transition-all" />
-            </div>
-          )}
-
-          {/* OTP step */}
-          {authMethod === 'phone' && step === 2 && (
-            <div className="relative">
-              <CheckCircle className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input type="text" name="otp" value={formData.otp} onChange={handleChange}
-                placeholder="Enter 6-digit OTP" required maxLength="6" inputMode="numeric"
-                className="w-full bg-black/30 border border-white/10 rounded-lg py-3 pl-10 pr-4 text-white placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/30 focus:bg-black/50 transition-all text-center tracking-[1em] font-mono text-lg" />
-            </div>
-          )}
-
-          <button type="submit" disabled={loading}
-            className="w-full bg-white text-black py-3 rounded-lg font-medium tracking-wider hover:bg-gray-200 transition-colors flex items-center justify-center gap-2 group disabled:opacity-70 disabled:cursor-not-allowed">
-            {loading ? 'Processing...' : (
-              <>
-                {authMethod === 'phone' && step === 1 ? 'Send OTP' : isLogin ? 'Log In' : 'Sign Up'}
-                {(authMethod !== 'phone' || step === 2) && (
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                )}
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Google sign-in (email method only, and only when OAuth is configured) */}
-        {authMethod === 'email' && googleEnabled && (
-          <>
-            <div className="flex items-center my-6">
-              <div className="flex-1 border-t border-white/10" />
-              <span className="px-4 text-gray-500 text-sm">OR</span>
-              <div className="flex-1 border-t border-white/10" />
-            </div>
+          {/* Toggle mode */}
+          <p className="mt-10 text-center text-[10px] tracking-[0.2em] uppercase text-white/25 font-sans">
+            {isLogin ? "Don't have an account?" : 'Already a member?'}
+            {' '}
             <button
-              type="button"
-              onClick={handleGoogleClick}
-              disabled={loading}
-              aria-label="Continue with Google"
-              className="w-full bg-transparent border border-white/20 hover:bg-white/5 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={toggleMode}
+              className="text-white/60 hover:text-white transition-colors focus:outline-none underline underline-offset-4 decoration-white/20"
             >
-              {loading ? <span>Processing...</span> : (
-                <>
-                  <svg className="w-5 h-5" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                  </svg>
-                  Continue with Google
-                </>
-              )}
-            </button>
-          </>
-        )}
-
-        <div className="mt-8 text-center">
-          <p className="text-gray-400 text-sm">
-            {isLogin ? "Don't have an account?" : 'Already have an account?'}
-            <button onClick={toggleMode}
-              className="ml-2 text-white hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 rounded font-medium">
-              {isLogin ? 'Sign up' : 'Log in'}
+              {isLogin ? 'Sign up' : 'Sign in'}
             </button>
           </p>
+
         </div>
       </div>
     </div>

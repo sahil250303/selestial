@@ -66,7 +66,7 @@ export const loginCustomer = (req, res) => {
       if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
     }
     const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone } });
+    res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
   });
 };
 
@@ -87,7 +87,7 @@ export const loginWithGoogle = async (req, res) => {
       if (err) return res.status(500).json({ error: 'Database error' });
       if (user) {
         const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
-        return res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone } });
+        return res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
       }
       const stmt = db.prepare('INSERT INTO customers (name, email, auth_provider, join_date) VALUES (?, ?, ?, ?)');
       stmt.run(name, email, 'google', date, function(insertErr) {
@@ -146,7 +146,7 @@ export const verifyOtp = (req, res) => {
       if (err2) return res.status(500).json({ error: 'Database error looking up user' });
       if (user) {
         const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
-        return res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone } });
+        return res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
       }
       if (!name) return res.status(400).json({ error: 'Name is required to create a new account' });
       const date = new Date().toISOString().split('T')[0];
@@ -154,9 +154,4 @@ export const verifyOtp = (req, res) => {
       stmt.run(name, phone, 'otp', date, function(insertErr) {
         if (insertErr) return res.status(500).json({ error: 'Database error creating customer' });
         const token = jwt.sign({ id: this.lastID, phone }, JWT_SECRET, { expiresIn: '7d' });
-        res.status(201).json({ token, message: 'Signup successful', user: { name, phone } });
-      });
-      stmt.finalize();
-    });
-  });
-};
+        res.status(201).json({ token, message: 'Sig

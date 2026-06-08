@@ -161,8 +161,18 @@ export function initDb() {
         if (!cols.includes('phone'))         db.run("ALTER TABLE customers ADD COLUMN phone TEXT");
         if (!cols.includes('password'))      db.run("ALTER TABLE customers ADD COLUMN password TEXT");
         if (!cols.includes('auth_provider')) db.run("ALTER TABLE customers ADD COLUMN auth_provider TEXT");
+        if (!cols.includes('address'))       db.run("ALTER TABLE customers ADD COLUMN address TEXT");
       });
     });
+
+    // Wishlists — persisted per authenticated customer
+    db.run(`CREATE TABLE IF NOT EXISTS wishlists (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      added_at TEXT,
+      UNIQUE(customer_id, product_id)
+    )`);
 
     // OTP sessions
     db.run(`CREATE TABLE IF NOT EXISTS otp_sessions (
@@ -215,12 +225,4 @@ export function initDb() {
         { name: "Lunar Drop Earrings",   price: 125, category: "earrings",  gender: "women", image: "https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&q=80&w=400", description: "Elegant 925 sterling silver drop earrings capturing the essence of moonlight. Material: 925 sterling silver. Finish: satin. Care: store separately to avoid scratching.", quantity: 20 },
         { name: "Nova Cuff",             price: 180, category: "bracelets", gender: "women", image: "https://images.unsplash.com/photo-1611591437281-460bfbe1220a?auto=format&fit=crop&q=80&w=400", description: "Minimalist 925 sterling silver cuff bracelet with high-polish finish. Internal diameter: 58mm. Material: 925 sterling silver. Finish: mirror-polish.", quantity: 8 },
         { name: "Eclipse Pendant",       price: 160, category: "pendants",  gender: "both",  image: "https://images.unsplash.com/photo-1599459183200-59c768ecb41a?auto=format&fit=crop&q=80&w=400", description: "Abstract 925 sterling silver pendant on a delicate 18-inch chain. Material: 925 sterling silver. Finish: oxidised. Care: polish with provided cloth to restore shine.", quantity: 12 },
-        { name: "Stellar Set",           price: 340, category: "sets",      gender: "women", image: "https://images.unsplash.com/photo-1515562141207-7a8efdb280f6?auto=format&fit=crop&q=80&w=400", description: "Matching necklace and stud earrings set in 925 sterling silver. Includes: 18-inch necklace, pair of studs, gift box, polishing pouch. Material: 925 sterling silver.", quantity: 5 },
-      ];
-      const stmt = db.prepare("INSERT INTO products (name, price, category, gender, image, description, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)");
-      mockProducts.forEach(p => stmt.run(p.name, p.price, p.category, p.gender, p.image, p.description, p.quantity));
-      stmt.finalize();
-      console.log("Seeded 6 initial products.");
-    });
-  });
-}
+        { name: "Stellar Set",           price: 340, category: "sets",      gender: "women", image: "https://images.unsplash.com/photo-1515562141207-7a8efdb280f6?auto=format&fit=crop&q=80&w=400", description: "Matching necklace and stud earrings set in 925 sterling silver. Includes: 18-inch necklace, pair of studs, gift box, polishing pouch. Material: 925 

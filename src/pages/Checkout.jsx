@@ -1,27 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../App';
 import { useNavigate, Link } from 'react-router-dom';
-import { CheckCircle, ShoppingBag } from 'lucide-react';
+import { CheckCircle, ShoppingBag, UserCheck } from 'lucide-react';
 import { getOptimizedImageUrl } from '../utils/imageUrls.js';
+import { getCustomerSession } from '../utils/auth';
 
 // ── Stripe Elements (loaded only when VITE_STRIPE_PUBLISHABLE_KEY is set) ─────
-// Dynamic import so the bundle doesn't break when Stripe is not configured.
 import { loadStripe } from '@stripe/stripe-js';
 import { CardElement, Elements, useStripe, useElements } from '@stripe/react-stripe-js';
 
 const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
-// ── Inner checkout form (used inside Stripe <Elements> wrapper) ───────────────
-function CheckoutForm({ cart, total, formData, handleChange }) {
+/**
+ * Derive initial form values from the customer session.
+ * Splits a full name into first/last on the first space.
+ */
+function sessionToFormData(session) {
+  if (!session?.user) return { firstName: '', lastName: '', email: '', phone: '', address: '' };
+  const { name = '', email = '', phone = '', address = '' } = session.user;
+  const trimmed = String(name).trim();
+  const spaceIdx = trimmed.indexOf(' ');
+  const firstName = spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx);
+  const lastName  = spaceIdx === -1 ? ''       : trimmed.slice(spaceIdx + 1);
+  return {
+    firstName,
+    lastName,
+    email:   email   || '',
+    phone:   phone   || '',
+    address: address || '',
+  };
+}
+
+// ── Inner checkout form ───────────────────────────────────────────────────────
+function CheckoutForm({ cart, total, formData, handleChange, isPreFilled }) {
   const navigate = useNavigate();
   const { clearCart } = useCart();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Stripe hooks — return null when not inside an <Elements> provider
-  const stripe = stripePromise ? useStripe() : null;
+  const stripe   = stripePromise ? useStripe()   : null;
   const elements = stripePromise ? useElements() : null;
 
   const handleSubmit = async (e) => {
@@ -32,14 +51,13 @@ function CheckoutForm({ cart, total, formData, handleChange }) {
     try {
       let paymentMethodId = null;
 
-      // ── If Stripe is configured, create a payment method ───────────────
       if (stripe && elements) {
         const cardEl = elements.getElement(CardElement);
         const { error, paymentMethod } = await stripe.createPaymentMethod({
           type: 'card',
           card: cardEl,
           billing_details: {
-            name: `${formData.firstName} ${formData.lastName}`,
+            name:  `${formData.firstName} ${formData.lastName}`,
             email: formData.email,
           },
         });
@@ -51,9 +69,14 @@ function CheckoutForm({ cart, total, formData, handleChange }) {
         paymentMethodId = paymentMethod.id;
       }
 
+      // Pass auth token so the server can upsert the customer's profile
+      const session = getCustomerSession();
+      const headers = { 'Content-Type': 'application/json' };
+      if (session?.token) headers['Authorization'] = `Bearer ${session.token}`;
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           ...formData,
           cartItems: cart,
@@ -101,9 +124,17 @@ function CheckoutForm({ cart, total, formData, handleChange }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Shipping */}
-      <h2 className="font-serif text-xl tracking-widest uppercase text-white border-b border-white/10 pb-4 mb-6">
-        Shipping Details
-      </h2>
+      <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+        <h2 className="font-serif text-xl tracking-widest uppercase text-white">
+          Shipping Details
+        </h2>
+        {isPreFilled && (
+          <span className="flex items-center gap-1.5 text-[10px] tracking-widest uppercase text-green-400 bg-green-400/10 px-2.5 py-1 rounded-full">
+            <UserCheck size={11} />
+            Pre-filled from your profile
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-6">
         <div>
@@ -143,7 +174,6 @@ function CheckoutForm({ cart, total, formData, handleChange }) {
       </h2>
 
       {stripePromise ? (
-        /* ── Stripe Elements card input ──────────────────────────────────── */
         <div>
           <label className="block text-xs uppercase tracking-widest text-silver mb-3">Card Details</label>
           <div className="bg-dark/50 border border-white/10 p-4 rounded-sm">
@@ -166,7 +196,6 @@ function CheckoutForm({ cart, total, formData, handleChange }) {
           </p>
         </div>
       ) : (
-        /* ── Stripe not configured — show setup notice ───────────────────── */
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-sm p-5">
           <p className="text-yellow-300 text-xs tracking-widest uppercase font-bold mb-2">Payment Configuration Required</p>
           <p className="text-silver-dark text-xs leading-relaxed">
@@ -199,14 +228,17 @@ function CheckoutForm({ cart, total, formData, handleChange }) {
 // ── Main Checkout page ────────────────────────────────────────────────────────
 export default function Checkout() {
   const { cart } = useCart();
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    firstName: '', lastName: '', email: '', phone: '', address: '',
-  });
+  const navigate  = useNavigate();
+
+  // Pre-fill from session; guest users start with empty fields
+  const session    = getCustomerSession();
+  const prefilled  = sessionToFormData(session);
+  const isPreFilled = !!(session?.user && (prefilled.email || prefilled.phone));
+
+  const [formData, setFormData] = useState(prefilled);
 
   const total = cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
-  // Empty-cart guard
   useEffect(() => {
     if (cart.length === 0) navigate('/cart');
   }, [cart, navigate]);
@@ -214,9 +246,17 @@ export default function Checkout() {
   const handleChange = (e) =>
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  if (cart.length === 0) return null; // guard renders before redirect
+  if (cart.length === 0) return null;
 
-  const formContent = <CheckoutForm cart={cart} total={total} formData={formData} handleChange={handleChange} />;
+  const formContent = (
+    <CheckoutForm
+      cart={cart}
+      total={total}
+      formData={formData}
+      handleChange={handleChange}
+      isPreFilled={isPreFilled}
+    />
+  );
 
   return (
     <div className="pt-32 px-6 lg:px-12 max-w-7xl mx-auto min-h-screen relative z-10">
