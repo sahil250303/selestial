@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingBag, Search, User, Menu, X, Heart, Home, Grid } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
+import { getCustomerSession, clearCustomerSession } from '../utils/auth';
 
 export default function Navbar() {
   // Skip-link target is id="main-content" in App.jsx
@@ -21,10 +22,10 @@ export default function Navbar() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   useEffect(() => {
-    const name = localStorage.getItem('customerName');
-    if (name) {
-      setCustomerName(name);
-    }
+    // Drive the avatar/Profile link off the *validated* session so we never show
+    // a "Profile" link that leads to a blank page when the keys are out of sync.
+    const session = getCustomerSession();
+    setCustomerName(session?.user?.name ?? null);
 
     const handleScroll = () => {
       if (window.scrollY > 50) {
@@ -38,9 +39,7 @@ export default function Navbar() {
   }, [location.pathname]);
 
   const handleLogout = () => {
-    localStorage.removeItem('customerToken');
-    localStorage.removeItem('customerName');
-    localStorage.removeItem('customerData');
+    clearCustomerSession();
     setCustomerName(null);
     setShowUserDropdown(false);
     navigate('/');

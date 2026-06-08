@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Phone, Lock, User, ArrowRight, CheckCircle } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
+import { setCustomerSession } from '../utils/auth';
+import { googleEnabled } from '../config/google.js';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -26,24 +28,33 @@ const Auth = () => {
   };
 
   // ── Persist auth state helper ───────────────────────────────────────────────
+  // Routes through the shared session util so the three localStorage keys stay
+  // in sync and an incomplete backend payload throws here (caught below) instead
+  // of writing "undefined" into storage and blanking the Profile page later.
   const persistAuth = (data, redirectPath) => {
-    localStorage.setItem('customerToken', data.token);
-    localStorage.setItem('customerName', data.user.name);
-    localStorage.setItem('customerData', JSON.stringify(data.user));
+    setCustomerSession(data);
     navigate(redirectPath || location.state?.from || '/');
   };
 
   // ── Real Google OAuth (uses @react-oauth/google) ───────────────────────────
+  // `prompt: 'select_account'` forces Google to show the account-chooser list on
+  // every click instead of silently reusing the last session — this is the
+  // behaviour requested (pick your email from a list). `onNonOAuthError` fires
+  // when the popup is closed/blocked, so the button never gets stuck on
+  // "Processing…".
   const googleLogin = useGoogleLogin({
+    flow: 'implicit',
+    prompt: 'select_account',
     onSuccess: async (tokenResponse) => {
-      setLoading(true);
+      // setLoading(true) already fired on click; keep it on through the exchange.
       setError('');
       try {
-        // Exchange Google access token for app JWT via our backend
-        // We use the id_token flow: get user info from Google, verify on server
+        // Exchange the Google access token for our app JWT via the backend,
+        // which re-verifies the token against Google's userinfo endpoint.
         const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
           headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
         });
+        if (!userInfoRes.ok) throw new Error('Could not read your Google profile. Please try again.');
         const googleUser = await userInfoRes.json();
 
         const res = await fetch('/api/auth/customer/google', {
@@ -57,14 +68,29 @@ const Auth = () => {
         persistAuth(data);
       } catch (err) {
         setError(err.message || 'Google authentication failed');
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     },
     onError: () => {
-      setError('Google sign-in was cancelled or failed. Please try again.');
+      setError('Google sign-in did not complete. Please try again.');
+      setLoading(false);
+    },
+    onNonOAuthError: () => {
+      // Popup dismissed or blocked — reset the button quietly.
       setLoading(false);
     },
   });
+
+  const handleGoogleClick = () => {
+    if (!googleEnabled) {
+      setError('Google sign-in is not configured yet. Please use email or phone, or contact support.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    googleLogin();
+  };
 
   // ── Send OTP ────────────────────────────────────────────────────────────────
   const handleSendOTP = async (e) => {
@@ -234,8 +260,8 @@ const Auth = () => {
           </button>
         </form>
 
-        {/* Google sign-in (email method only) */}
-        {authMethod === 'email' && (
+        {/* Google sign-in (email method only, and only when OAuth is configured) */}
+        {authMethod === 'email' && googleEnabled && (
           <>
             <div className="flex items-center my-6">
               <div className="flex-1 border-t border-white/10" />
@@ -244,7 +270,7 @@ const Auth = () => {
             </div>
             <button
               type="button"
-              onClick={() => { setLoading(true); googleLogin(); }}
+              onClick={handleGoogleClick}
               disabled={loading}
               aria-label="Continue with Google"
               className="w-full bg-transparent border border-white/20 hover:bg-white/5 text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"

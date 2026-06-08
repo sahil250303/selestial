@@ -15,6 +15,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import RequireAuth from './pages/admin/RequireAuth';
 import FloatingCart from './components/FloatingCart';
 import ServiceSection from './components/ServiceSection';
+import ErrorBoundary from './components/ErrorBoundary';
 import { WishlistProvider } from './context/WishlistContext';
 import WishlistPage from './pages/WishlistPage';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -117,6 +118,7 @@ function App() {
             <CanvasBackground />
             <div id="main-content" className="relative z-10 font-sans text-silver-light pb-20">
               <Navbar />
+              <ErrorBoundary>
               <Routes>
                 {/* Core */}
                 <Route path="/" element={<Home />} />
@@ -154,6 +156,7 @@ function App() {
                 {/* 404 — must be last */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </ErrorBoundary>
               <ServiceSection />
               <Footer />
               <FloatingCart />
