@@ -11,21 +11,6 @@ export default function Home() {
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
-  // Announcement Bar Slider
-  const [announcementIndex, setAnnouncementIndex] = useState(0);
-  const announcements = [
-    "COMPLIMENTARY SHIPPING ON ORDERS OVER $100",
-    "JOIN THE SELESTIAL CLUB & RECEIVE 10% OFF YOUR FIRST ORDER",
-    "EXQUISITE COMPLIMENTARY GIFT PACKAGING ON ALL ORDERS"
-  ];
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAnnouncementIndex((prev) => (prev + 1) % announcements.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [announcements.length]);
-
   // Hero Slider
   const [currentHero, setCurrentHero] = useState(0);
   const heroSlides = [
@@ -97,22 +82,6 @@ export default function Home() {
         <meta property="og:url" content="https://selestial.vercel.app/" />
         <meta property="og:type" content="website" />
       </Helmet>
-      {/* Announcement Bar */}
-      <div className="w-full bg-[#0d0d0d] border-b border-white/5 py-3 text-center transition-all duration-500">
-        <div className="max-w-7xl mx-auto px-4 overflow-hidden relative h-4 flex items-center justify-center">
-          {announcements.map((text, idx) => (
-            <div
-              key={idx}
-              className={`absolute text-[10px] md:text-[11px] font-sans tracking-[0.25em] text-silver-light uppercase transition-all duration-700 ease-in-out ${
-                idx === announcementIndex ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'
-              }`}
-            >
-              {text}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Hero Section */}
       <section className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-black select-none">
         {heroSlides.map((slide, idx) => (
@@ -131,7 +100,7 @@ export default function Home() {
               loading="eager"
             />
             {/* Content Overlay */}
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6 pt-28 md:pt-0">
               <span className="text-[10px] md:text-xs tracking-[0.4em] text-silver uppercase mb-4 font-sans font-medium">NEW COLLECTION</span>
               <h1 className="font-serif text-3xl md:text-5xl lg:text-6xl tracking-widest text-white uppercase mb-6 max-w-3xl leading-tight">
                 {slide.title}
@@ -186,42 +155,53 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Our Story Section */}
-      <section className="py-24 px-6 lg:px-12 relative z-10 text-center">
-        <div className="max-w-4xl mx-auto border border-white/10 p-10 md:p-16 rounded-[2rem] bg-[#070707]">
-          <h2 className="font-serif text-3xl md:text-4xl text-white tracking-widest uppercase mb-10">Our Story</h2>
-          <div className="space-y-8 text-silver text-sm md:text-base tracking-wider leading-loose font-light">
-            <p>
-              In the vast expanse of the cosmos, where stars shine with eternal brilliance, we found our inspiration. Selestial – with an 'S' instead of 'C' – represents our unique perspective on celestial beauty, reimagined through the timeless elegance of silver.
-            </p>
-            <p>
-              Each piece in our collection is crafted with the precision of stardust and the passion of cosmic artistry. We believe that silver, like the moon's gentle glow, possesses an ethereal quality that transcends time and trend.
-            </p>
-            <p>
-              Our journey began with a simple vision: to create jewellery that doesn't just adorn, but transforms. Every necklace, ring, bracelet, and pair of earrings tells a story – your story – written in the language of silver and light.
-            </p>
-            <div className="pt-6 space-y-3">
-              <p className="tracking-[0.3em] uppercase text-xs text-white/80">Welcome to the Universe of Silver.</p>
-              <p className="font-serif text-xl text-white">Welcome to Selestial.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Shop by Category Grid */}
-      <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
+      {/* Shop by Category — horizontal scroll on mobile, 5-col grid on desktop */}
+      <section className="py-16 md:py-24 bg-[#000000] border-b border-white/5">
         <div className="max-w-7xl mx-auto">
-          <h2 className="font-serif text-xl md:text-2xl text-center text-white tracking-[0.3em] uppercase mb-16">
+          <h2 className="font-serif text-xl md:text-2xl text-center text-white tracking-[0.3em] uppercase mb-8 md:mb-16 px-6">
             SHOP BY CATEGORY
           </h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          {/* Mobile: full-bleed horizontal scroll strip */}
+          <div className="md:hidden flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-5 pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
-              { name: 'Chains', img: '/categories/Chain-960.webp', query: 'necklaces' },
+              { name: 'Chains',    img: '/categories/Chain-960.webp',     query: 'necklaces' },
               { name: 'Bracelets', img: '/categories/Bracelets-960.webp', query: 'bracelets' },
-              { name: 'Rings', img: '/categories/Rings-960.webp', query: 'rings' },
-              { name: 'Earrings', img: '/categories/Earrings-960.webp', query: 'earrings' },
-              { name: 'Sets', img: '/categories/Sets-960.webp', query: 'sets' }
+              { name: 'Rings',     img: '/categories/Rings-960.webp',     query: 'rings'     },
+              { name: 'Earrings',  img: '/categories/Earrings-960.webp',  query: 'earrings'  },
+              { name: 'Sets',      img: '/categories/Sets-960.webp',      query: 'sets'      },
+            ].map((cat) => (
+              <Link
+                to={`/products?cat=${cat.query}`}
+                key={cat.name}
+                className="flex-none snap-start w-[42vw] max-w-[168px] flex flex-col items-center"
+              >
+                <div className="w-full aspect-square bg-[#0a0a0a] overflow-hidden border border-white/5 rounded-lg relative">
+                  <img
+                    src={cat.img}
+                    alt={cat.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    draggable="false"
+                  />
+                </div>
+                <span className="font-sans font-bold text-white text-[10px] tracking-[0.2em] uppercase mt-3 text-center">
+                  {cat.name}
+                </span>
+              </Link>
+            ))}
+            {/* Trailing spacer so the last card doesn't clip against the edge */}
+            <div className="flex-none w-2" aria-hidden="true" />
+          </div>
+
+          {/* Desktop: standard 5-column grid */}
+          <div className="hidden md:grid md:grid-cols-5 gap-6 px-6 lg:px-12">
+            {[
+              { name: 'Chains',    img: '/categories/Chain-960.webp',     query: 'necklaces' },
+              { name: 'Bracelets', img: '/categories/Bracelets-960.webp', query: 'bracelets' },
+              { name: 'Rings',     img: '/categories/Rings-960.webp',     query: 'rings'     },
+              { name: 'Earrings',  img: '/categories/Earrings-960.webp',  query: 'earrings'  },
+              { name: 'Sets',      img: '/categories/Sets-960.webp',      query: 'sets'      },
             ].map((cat) => (
               <Link
                 to={`/products?cat=${cat.query}`}
@@ -361,6 +341,28 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Our Story Section */}
+      <section className="py-24 px-6 lg:px-12 relative z-10 text-center">
+        <div className="max-w-4xl mx-auto border border-white/10 p-10 md:p-16 rounded-[2rem] bg-[#070707]">
+          <h2 className="font-serif text-3xl md:text-4xl text-white tracking-widest uppercase mb-10">Our Story</h2>
+          <div className="space-y-8 text-silver text-sm md:text-base tracking-wider leading-loose font-light">
+            <p>
+              In the vast expanse of the cosmos, where stars shine with eternal brilliance, we found our inspiration. Selestial – with an 'S' instead of 'C' – represents our unique perspective on celestial beauty, reimagined through the timeless elegance of silver.
+            </p>
+            <p>
+              Each piece in our collection is crafted with the precision of stardust and the passion of cosmic artistry. We believe that silver, like the moon's gentle glow, possesses an ethereal quality that transcends time and trend.
+            </p>
+            <p>
+              Our journey began with a simple vision: to create jewellery that doesn't just adorn, but transforms. Every necklace, ring, bracelet, and pair of earrings tells a story – your story – written in the language of silver and light.
+            </p>
+            <div className="pt-6 space-y-3">
+              <p className="tracking-[0.3em] uppercase text-xs text-white/80">Welcome to the Universe of Silver.</p>
+              <p className="font-serif text-xl text-white">Welcome to Selestial.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Editorial Heritage/Story Section */}
       <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-12 lg:gap-20">
@@ -433,6 +435,4 @@ export default function Home() {
           )}
         </div>
       </section>
-    </div>
-  );
-}
+    

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Calendar, LogOut, Package, MapPin, Heart } from 'lucide-react';
-import { getCustomerSession, clearCustomerSession } from '../utils/auth';
+import { User, Mail, Phone, Calendar, LogOut, Package, MapPin, Heart, Pencil, X, Check, Loader2 } from 'lucide-react';
+import { getCustomerSession, clearCustomerSession, setCustomerSession } from '../utils/auth';
 import { useWishlist } from '../context/WishlistContext';
 
 // Orders persist their line items as a JSON *string*. Never let a malformed
@@ -18,11 +18,17 @@ function safeParseItems(items) {
 }
 
 const Profile = () => {
-  // Initialise from the validated session so there is no "null render" flash and
-  // a corrupt session can never crash this route — it simply reads as logged-out.
   const [user, setUser] = useState(() => getCustomerSession()?.user ?? null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Edit state
+  const [editing, setEditing] = useState(false);
+  const [editPhone, setEditPhone] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
   const navigate = useNavigate();
   const { wishlist } = useWishlist();
 
@@ -45,7 +51,6 @@ const Profile = () => {
         const data = await res.json();
         setOrders(Array.isArray(data) ? data : []);
       } else if (res.status === 401 || res.status === 403) {
-        // Token expired/invalid — clear the stale session and send to login.
         clearCustomerSession();
         navigate('/auth');
       }
@@ -59,16 +64,54 @@ const Profile = () => {
   const handleLogout = () => {
     clearCustomerSession();
     navigate('/');
-    window.location.reload(); // Refresh to update Navbar
+    window.location.reload();
   };
 
-  // ── Derived profile data (no schema changes) ──────────────────────────────
-  // The customers table doesn't store an address, but checkout does — so the
-  // most recent order's address is the user's saved delivery address.
+  const openEdit = () => {
+    setSaveError('');
+    setEditPhone(user.phone || '');
+    setEditAddress(user.address || latestAddress || '');
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setSaveError('');
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError('');
+    try {
+      const session = getCustomerSession();
+      const res = await fetch('/api/customer/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.token}`,
+        },
+        body: JSON.stringify({ phone: editPhone.trim(), address: editAddress.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save changes');
+      }
+      const { user: updatedUser } = await res.json();
+      const merged = { ...session.user, ...updatedUser };
+      setCustomerSession({ token: session.token, user: merged });
+      setUser(merged);
+      setEditing(false);
+    } catch (e) {
+      setSaveError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // The most recent order's address as fallback display value (no schema changes needed)
   const latestAddress = orders.find((o) => o.address && String(o.address).trim())?.address || '';
   const favoriteCount = wishlist.length;
 
-  // Brief guard while the redirect effect runs for logged-out visitors.
   if (!user) {
     return (
       <div className="min-h-screen pt-32 pb-20 px-6 flex items-center justify-center">
@@ -76,6 +119,9 @@ const Profile = () => {
       </div>
     );
   }
+
+  // What to display for address: saved on customer record, else latest order address
+  const displayAddress = user.address || (!loading && latestAddress) || '';
 
   return (
     <div className="min-h-screen pt-32 pb-20 px-6">
@@ -111,8 +157,30 @@ const Profile = () => {
           {/* Main Content */}
           <div className="flex-1 space-y-8">
             <div className="glass-panel p-8 rounded-2xl">
-              <h3 className="text-xl font-light tracking-[0.2em] text-white mb-8 border-b border-white/10 pb-4">ACCOUNT DETAILS</h3>
+              {/* Header with edit toggle */}
+              <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-8">
+                <h3 className="text-xl font-light tracking-[0.2em] text-white">ACCOUNT DETAILS</h3>
+                {!editing ? (
+                  <button
+                    onClick={openEdit}
+                    className="flex items-center gap-2 text-xs tracking-widest uppercase text-gray-400 hover:text-white transition-colors py-1.5 px-3 bg-white/5 hover:bg-white/10 rounded-lg"
+                    title="Edit contact details"
+                  >
+                    <Pencil size={13} />
+                    Edit
+                  </button>
+                ) : (
+                  <button
+                    onClick={cancelEdit}
+                    className="flex items-center gap-2 text-xs tracking-widest uppercase text-gray-400 hover:text-white transition-colors py-1.5 px-3 bg-white/5 hover:bg-white/10 rounded-lg"
+                  >
+                    <X size={13} />
+                    Cancel
+                  </button>
+                )}
+              </div>
 
+              {/* Static detail rows */}
               <div className="grid grid-cols-1 gap-8">
                 <div className="flex items-start gap-4">
                   <div className="p-3 bg-white/5 rounded-lg">
@@ -134,27 +202,69 @@ const Profile = () => {
                   </div>
                 </div>
 
+                {/* Phone — shows input when editing */}
                 <div className="flex items-start gap-4">
-                  <div className="p-3 bg-white/5 rounded-lg">
+                  <div className="p-3 bg-white/5 rounded-lg shrink-0">
                     <Phone size={20} className="text-silver" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs text-gray-500 tracking-widest uppercase mb-1">Mobile Number</p>
-                    <p className="text-lg font-light text-white">{user.phone || 'Not provided'}</p>
+                    {editing ? (
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="Enter mobile number"
+                        className="w-full bg-white/5 border border-white/10 focus:border-white/30 rounded-lg px-4 py-2.5 text-white text-sm font-light tracking-wide outline-none transition-colors placeholder-white/20"
+                      />
+                    ) : (
+                      <p className="text-lg font-light text-white">{user.phone || 'Not provided'}</p>
+                    )}
                   </div>
                 </div>
 
+                {/* Address — shows input when editing */}
                 <div className="flex items-start gap-4">
-                  <div className="p-3 bg-white/5 rounded-lg">
+                  <div className="p-3 bg-white/5 rounded-lg shrink-0">
                     <MapPin size={20} className="text-silver" />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs text-gray-500 tracking-widest uppercase mb-1">Saved Address</p>
-                    <p className="text-lg font-light text-white">
-                      {loading ? '—' : latestAddress || 'Not provided'}
-                    </p>
+                    {editing ? (
+                      <input
+                        type="text"
+                        value={editAddress}
+                        onChange={(e) => setEditAddress(e.target.value)}
+                        placeholder="Enter delivery address"
+                        className="w-full bg-white/5 border border-white/10 focus:border-white/30 rounded-lg px-4 py-2.5 text-white text-sm font-light tracking-wide outline-none transition-colors placeholder-white/20"
+                      />
+                    ) : (
+                      <p className="text-lg font-light text-white">
+                        {loading ? '—' : displayAddress || 'Not provided'}
+                      </p>
+                    )}
                   </div>
                 </div>
+
+                {/* Save Changes button — only visible when editing */}
+                {editing && (
+                  <div className="flex flex-col gap-3 pt-2">
+                    {saveError && (
+                      <p className="text-xs text-red-400 tracking-wide">{saveError}</p>
+                    )}
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="flex items-center justify-center gap-2 w-full py-3 bg-white text-black font-medium text-sm tracking-[0.15em] uppercase rounded-lg hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {saving ? (
+                        <><Loader2 size={15} className="animate-spin" /> Saving…</>
+                      ) : (
+                        <><Check size={15} /> Save Changes</>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-4">
                   <div className="p-3 bg-white/5 rounded-lg">
