@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 815.01 162.65">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #0d1b2a;
+        font-family: AgathoRegularCAPS, Agatho;
+        font-size: 167.25px;
+      }
+
+      .cls-1, .cls-2 {
+        isolation: isolate;
+      }
+    </style>
+  </defs>
+  <g class="cls-2">
+    <text class="cls-1" transform="translate(0 135.56)"><tspan x="0" y="0">SELESTIAL</tspan></text>
+  </g>
+</svg>
