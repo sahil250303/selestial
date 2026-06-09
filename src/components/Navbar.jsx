@@ -199,7 +199,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className={'flex items-center justify-center relative transition-transform duration-300 hover:scale-105 ' + (isSearchOpen ? 'hidden lg:flex' : 'flex')}>
             <img
-              src={scrolled ? '/SVG/Black%20logo.svg' : '/SVG/white%20logo.svg'}
+              src={scrolled ? '/SVG/SELESTIAL.LGOG%20IN%20BLUE.svg' : '/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg'}
               alt="Selestial Logo"
               className="h-10 md:h-12 w-auto object-contain transition-all duration-300"
             />
