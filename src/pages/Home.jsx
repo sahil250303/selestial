@@ -87,9 +87,8 @@ export default function Home() {
         {heroSlides.map((slide, idx) => (
           <div
             key={idx}
-            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-              idx === currentHero ? 'opacity-100 z-10' : 'opacity-0 z-0'
-            }`}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === currentHero ? 'opacity-100 z-10' : 'opacity-0 z-0'
+              }`}
           >
             {/* Background Image */}
             <div className="absolute inset-0 bg-black/30 z-10" />
@@ -165,11 +164,11 @@ export default function Home() {
           {/* Mobile: full-bleed horizontal scroll strip */}
           <div className="md:hidden flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-5 pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
-              { name: 'Chains',    img: '/categories/Chain-960.webp',     query: 'necklaces' },
+              { name: 'Chains', img: '/categories/Chain-960.webp', query: 'necklaces' },
               { name: 'Bracelets', img: '/categories/Bracelets-960.webp', query: 'bracelets' },
-              { name: 'Rings',     img: '/categories/Rings-960.webp',     query: 'rings'     },
-              { name: 'Earrings',  img: '/categories/Earrings-960.webp',  query: 'earrings'  },
-              { name: 'Sets',      img: '/categories/Sets-960.webp',      query: 'sets'      },
+              { name: 'Rings', img: '/categories/Rings-960.webp', query: 'rings' },
+              { name: 'Earrings', img: '/categories/Earrings-960.webp', query: 'earrings' },
+              { name: 'Sets', img: '/categories/Sets-960.webp', query: 'sets' },
             ].map((cat) => (
               <Link
                 to={`/products?cat=${cat.query}`}
@@ -197,11 +196,11 @@ export default function Home() {
           {/* Desktop: standard 5-column grid */}
           <div className="hidden md:grid md:grid-cols-5 gap-6 px-6 lg:px-12">
             {[
-              { name: 'Chains',    img: '/categories/Chain-960.webp',     query: 'necklaces' },
+              { name: 'Chains', img: '/categories/Chain-960.webp', query: 'necklaces' },
               { name: 'Bracelets', img: '/categories/Bracelets-960.webp', query: 'bracelets' },
-              { name: 'Rings',     img: '/categories/Rings-960.webp',     query: 'rings'     },
-              { name: 'Earrings',  img: '/categories/Earrings-960.webp',  query: 'earrings'  },
-              { name: 'Sets',      img: '/categories/Sets-960.webp',      query: 'sets'      },
+              { name: 'Rings', img: '/categories/Rings-960.webp', query: 'rings' },
+              { name: 'Earrings', img: '/categories/Earrings-960.webp', query: 'earrings' },
+              { name: 'Sets', img: '/categories/Sets-960.webp', query: 'sets' },
             ].map((cat) => (
               <Link
                 to={`/products?cat=${cat.query}`}
@@ -382,7 +381,7 @@ export default function Home() {
             </h2>
             <div className="space-y-6 text-silver-dark text-xs tracking-wider leading-relaxed font-light max-w-xl">
               <p>
-                Inspired by the celestial vault, where stars burn with eternal brilliance, Selestial translates the wonders of the universe into physical jewelry. 
+                Inspired by the celestial vault, where stars burn with eternal brilliance, Selestial translates the wonders of the universe into physical jewelry.
               </p>
               <p>
                 Each creation is hand-finished in premium 925 sterling silver, balancing geometric precision with fluid forms. We select and sculpt our silver to mirror the gentle brilliance of the moon's light, delivering understated statements that remain durable for lifetimes.
