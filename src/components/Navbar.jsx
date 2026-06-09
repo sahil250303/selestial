@@ -39,6 +39,7 @@ export default function Navbar() {
   const debounceTimer = useRef(null);
   const searchWrapperRef = useRef(null);
   const inputRef = useRef(null);
+  const productsCache = useRef(null);
 
   const announcements = [
     'COMPLIMENTARY SHIPPING ON ORDERS OVER $100',
@@ -87,11 +88,20 @@ export default function Navbar() {
     }
     debounceTimer.current = setTimeout(async () => {
       try {
-        const res = await fetch('/api/products/search?q=' + encodeURIComponent(q));
-        if (!res.ok) return;
-        const data = await res.json();
-        setSuggestions(data);
-        setShowSuggestions(data.length > 0);
+        // There is no /api/products/search route — that path resolves to
+        // /api/products/:id (id="search") and 404s. Reuse the working
+        // /api/products endpoint: fetch once, cache, then filter client-side.
+        if (!productsCache.current) {
+          const res = await fetch('/api/products');
+          if (!res.ok) return;
+          productsCache.current = await res.json();
+        }
+        const ql = q.toLowerCase();
+        const matches = (productsCache.current || [])
+          .filter((p) => p.name?.toLowerCase().includes(ql) || p.category?.toLowerCase().includes(ql))
+          .slice(0, 6);
+        setSuggestions(matches);
+        setShowSuggestions(matches.length > 0);
         setActiveSuggestion(-1);
       } catch {
         setSuggestions([]);
@@ -295,6 +305,7 @@ export default function Navbar() {
                     <Link to="/products?cat=earrings" className="hover:text-white transition-colors">Earrings</Link>
                     <Link to="/products?cat=bracelets" className="hover:text-white transition-colors">Bracelets</Link>
                     <Link to="/products?cat=rings" className="hover:text-white transition-colors">Rings</Link>
+                    <Link to="/products?cat=pendants" className="hover:text-white transition-colors">Pendants</Link>
                     <Link to="/products?cat=necklaces" className="hover:text-white transition-colors">Chains</Link>
                   </div>
                 </div>
