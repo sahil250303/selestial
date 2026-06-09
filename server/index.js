@@ -128,45 +128,6 @@ app.delete('/api/auth/logout', (req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 
-// Autocomplete search — top 5 suggestions ordered by relevance
-// Tier 1: name starts with query  (most relevant)
-// Tier 2: any word in name starts with query
-// Tier 3: name contains query anywhere  (broadest)
-app.get('/api/products/search', (req, res) => {
-  const q = String(req.query.q || '').trim();
-  if (!q || q.length < 2) return res.json([]);
-  try {
-    const like = `%${q}%`;
-    const startLike = `${q}%`;
-    // Pull candidates with a single LIKE pass, then rank in JS
-    const rows = db.all(
-      `SELECT id, name, price, category, image
-         FROM products
-        WHERE name LIKE ? OR category LIKE ?
-        LIMIT 50`,
-      [like, like]
-    );
-    const lower = q.toLowerCase();
-    const scored = rows.map((r) => {
-      const n = r.name.toLowerCase();
-      const words = n.split(/\s+/);
-      let score = 0;
-      if (n.startsWith(lower))              score = 3; // name begins with query
-      else if (words.some(w => w.startsWith(lower))) score = 2; // a word begins with query
-      else if (n.includes(lower))           score = 1; // contains anywhere
-      return { ...r, _score: score };
-    });
-    const results = scored
-      .filter(r => r._score > 0)
-      .sort((a, b) => b._score - a._score || a.name.localeCompare(b.name))
-      .slice(0, 5)
-      .map(({ _score, ...r }) => r);
-    res.json(results);
-  } catch (e) {
-    res.status(500).json({ error: 'Database error' });
-  }
-});
-
 // Public products
 app.get('/api/products', (req, res) => {
   db.all('SELECT * FROM products', (err, rows) => {
@@ -258,26 +219,6 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
     delete safePayload.cardNumber; delete safePayload.expiryDate; delete safePayload.cvc;
     const { orderId, order } = await orderStore.createCheckout(safePayload);
     if (order) sendOrderEmails(order).catch(err => console.error('Order email error:', err));
-
-    // If request includes a valid customer JWT, upsert phone + address so their
-    // profile stays current without requiring a manual profile edit.
-    const bearerToken = req.headers.authorization?.split(' ')[1];
-    if (bearerToken) {
-      try {
-        const decoded = jwt.verify(bearerToken, process.env.JWT_SECRET);
-        if (decoded?.id) {
-          const { phone, address } = safePayload;
-          db.run(
-            `UPDATE customers
-               SET phone   = CASE WHEN phone   IS NULL OR phone   = '' THEN ? ELSE phone   END,
-                   address = CASE WHEN address IS NULL OR address = '' THEN ? ELSE address END
-             WHERE id = ?`,
-            [phone || null, address || null, decoded.id]
-          );
-        }
-      } catch (_) { /* token invalid — skip silently */ }
-    }
-
     res.status(201).json({ message: 'Order processed successfully', orderId });
   } catch (err) {
     console.error('Checkout error:', err);
@@ -396,4 +337,44 @@ app.delete('/api/payments',     verifyToken, async (req, res) => { try { await o
 
 // Customers
 app.get('/api/customers',        verifyToken, async (req, res) => { try { res.json(await orderStore.listCustomers()); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/customers/:id', verifyToken, async (req, res) => { try { await orderStore.deleteCustomer(req.params.id);
+app.delete('/api/customers/:id', verifyToken, async (req, res) => { try { await orderStore.deleteCustomer(req.params.id); res.json({ message: 'Customer deleted' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/customers',     verifyToken, async (req, res) => { try { await orderStore.clearCustomers(); res.json({ message: 'All customers cleared' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
+
+// Customer's own orders
+app.get('/api/customer/orders', (req, res) => {
+  const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(403).json({ error: 'No token provided' });
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    if (err) return res.status(401).json({ error: 'Unauthorized' });
+    try { res.json(await orderStore.listCustomerOrders(decoded.email, decoded.phone)); }
+    catch (storeErr) { res.status(500).json({ error: 'Database error' }); }
+  });
+});
+
+// Dynamic sitemap
+app.get('/sitemap.xml', (req, res) => {
+  const base = process.env.SITE_URL || 'https://selestial.vercel.app';
+  db.all('SELECT id FROM products', (err, rows) => {
+    const staticPaths = ['/', '/products', '/about', '/faq', '/care-guide', '/size-guide', '/shipping-returns', '/privacy', '/terms', '/contact', '/auth'];
+    const productPaths = (rows || []).map(r => `/product/${r.id}`);
+    const allPaths = [...staticPaths, ...productPaths];
+    const urls = allPaths.map(p => `<url><loc>${base}${p}</loc><changefreq>weekly</changefreq><priority>${p === '/' ? '1.0' : '0.8'}</priority></url>`).join('\n  ');
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  ${urls}\n</urlset>`;
+    res.setHeader('Content-Type', 'application/xml').send(xml);
+  });
+});
+
+// Static frontend
+const distPath = join(__dirname, '../dist');
+app.use(express.static(distPath, {
+  setHeaders: (res, filePath) => {
+    if (/\.(?:avif|webp|png|jpe?g|gif|svg|ico)$/i.test(filePath)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+  },
+}));
+app.get('/{*splat}', (req, res) => res.sendFile(join(distPath, 'index.html')));
+
+if (!process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => console.log(`Backend running on http://0.0.0.0:${PORT}`));
+}
+
+export default app;
