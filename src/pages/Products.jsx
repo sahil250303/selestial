@@ -71,10 +71,10 @@ export default function Products() {
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content="Browse Selestial's complete collection of premium 925 sterling silver jewellery — rings, chains, bracelets, earrings and more." />
-        <link rel="canonical" href={`https://selestial.vercel.app/products`} />
+        <link rel="canonical" href={`https://selestial-lovat.vercel.app/products`} />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content="Premium 925 sterling silver jewellery — handcrafted with celestial precision." />
-        <meta property="og:url" content="https://selestial.vercel.app/products" />
+        <meta property="og:url" content="https://selestial-lovat.vercel.app/products" />
       </Helmet>
 
       <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Collection' }]} />
