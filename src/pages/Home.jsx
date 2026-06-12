@@ -5,7 +5,6 @@ import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
 import { mockProducts } from '../data/mockProducts';
-import { getOptimizedImageUrl } from '../utils/imageUrls';
 
 export default function Home() {
   const { addToCart } = useCart();
@@ -297,7 +296,7 @@ export default function Home() {
                   {/* Image Container */}
                   <div className="w-full aspect-square bg-[#0a0a0a] border border-white/5 overflow-hidden relative">
                     <img
-                      src={getOptimizedImageUrl(product.image, { width: 480, quality: 72 })}
+                      src={product.image}
                       alt={product.name}
                       className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                       loading="lazy"
