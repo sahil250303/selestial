@@ -41,3 +41,10 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+
+/* Mobile view: remove the redundant logo below the navbar on the Auth page */
+@media (max-width: 1023px) {
+  .auth-mobile-logo {
+    display: none !important;
+  }
+}

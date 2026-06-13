@@ -175,7 +175,7 @@ const Auth = () => {
         <div className="w-full max-w-sm">
 
           {/* Brand mark (mobile) */}
-          <div className="lg:hidden text-center mb-10">
+          <div className="lg:hidden text-center mb-10 auth-mobile-logo">
             <img src="/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg" alt="Selestial" className="h-10 mx-auto mb-4" />
             <div className="w-8 h-[1px] bg-white/20 mx-auto" />
           </div>
