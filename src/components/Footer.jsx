@@ -26,7 +26,7 @@ export default function Footer() {
         {/* Brand */}
         <div className="md:col-span-2">
           <Link to="/" className="inline-flex items-center mb-6 transition-transform duration-300 hover:scale-105 origin-left">
-            <img src="/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg?v=2" alt="Selestial Logo" className="h-10 md:h-12 w-auto object-contain" />
+            <img src="/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg?v=2" alt="Selestial Logo" className="h-8 md:h-[38px] w-auto object-contain" />
           </Link>
           <p className="text-silver-dark text-sm max-w-sm tracking-widest leading-loose mb-6">
             Universe of Silver. We create jewellery that doesn't just adorn, but transforms — written in the language of silver and light.
