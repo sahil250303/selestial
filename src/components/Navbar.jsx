@@ -201,7 +201,7 @@ export default function Navbar() {
             <img
               src={scrolled ? '/SVG/SELESTIAL.LGOG%20IN%20BLUE.svg?v=2' : '/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg?v=2'}
               alt="Selestial Logo"
-              className="h-10 md:h-12 w-auto object-contain transition-all duration-300"
+              className="h-8 md:h-[38px] w-auto object-contain transition-all duration-300"
             />
           </Link>
 
