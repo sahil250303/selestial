@@ -1,0 +1,14 @@
+# Large unused source images — keep them in the repo but never deploy them.
+# The app references the optimized /img/*.webp + /categories/*-960.webp variants.
+public/categories/Chain.png
+public/categories/Sets.png
+public/categories/Earrings.png
+public/categories/Pendants.png
+public/categories/Bracelets.png
+public/categories/Rings.png
+public/mens_hero.png
+
+# Local-only artifacts
+server/database.sqlite
+image-sources
+*.docx

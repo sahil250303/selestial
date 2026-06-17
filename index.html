@@ -6,34 +6,18 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Default meta — overridden per-page by react-helmet-async -->
-  <title>Selestial | Universe of Silver</title>
-  <meta name="description" content="Premium 925 sterling silver jewellery — rings, chains, bracelets and earrings crafted with celestial precision. Free shipping over $100." />
-
-  <!-- Canonical (fallback — each page sets its own via Helmet) -->
-  <link rel="canonical" href="https://selestial.vercel.app/" />
-
-  <!-- Open Graph (base — Helmet overrides on product pages) -->
-  <meta property="og:site_name" content="Selestial" />
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Selestial | Universe of Silver" />
-  <meta property="og:description" content="Premium 925 sterling silver jewellery crafted with celestial precision." />
-  <meta property="og:image" content="https://selestial.vercel.app/hero_1.png" />
-  <meta property="og:url" content="https://selestial.vercel.app/" />
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Selestial | Universe of Silver" />
-  <meta name="twitter:description" content="Premium 925 sterling silver jewellery crafted with celestial precision." />
-  <meta name="twitter:image" content="https://selestial.vercel.app/hero_1.png" />
-
-  <!-- Theme colour -->
+  <!-- Title, description, canonical and Open Graph/Twitter tags are all rendered
+       per-page by React (React 19 native document metadata). Keeping them out of
+       this shell guarantees a single, correct <title> with no duplicates. -->
   <meta name="theme-color" content="#000000" />
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Preload the LCP hero image -->
+  <link rel="preload" as="image" href="/hero_1.png" fetchpriority="high" />
 
   <!-- Organization + WebSite JSON-LD structured data -->
   <script type="application/ld+json">
@@ -42,8 +26,8 @@
       "@context": "https://schema.org",
       "@type": "Organization",
       "name": "Selestial",
-      "url": "https://selestial.vercel.app",
-      "logo": "https://selestial.vercel.app/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg?v=2",
+      "url": "https://selestial-lovat.vercel.app",
+      "logo": "https://selestial-lovat.vercel.app/SVG/SELESTIAL.LGOG%20IN%20WHITE.svg?v=2",
       "description": "Premium 925 sterling silver jewellery brand. Rings, chains, bracelets and earrings crafted with celestial precision.",
       "sameAs": [
         "https://www.instagram.com/selestial",
@@ -59,10 +43,10 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "Selestial",
-      "url": "https://selestial.vercel.app",
+      "url": "https://selestial-lovat.vercel.app",
       "potentialAction": {
         "@type": "SearchAction",
-        "target": "https://selestial.vercel.app/products?q={search_term_string}",
+        "target": "https://selestial-lovat.vercel.app/products?q={search_term_string}",
         "query-input": "required name=search_term_string"
       }
     }

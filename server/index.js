@@ -27,7 +27,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'js.stripe.com', 'apis.google.com', "'unsafe-inline'"],
+      scriptSrc: ["'self'", 'js.stripe.com', 'apis.google.com'],
       styleSrc: ["'self'", "'unsafe-inline'", 'fonts.googleapis.com'],
       fontSrc: ["'self'", 'fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
@@ -38,15 +38,14 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS
-const allowedOrigin = process.env.ALLOWED_ORIGIN || 'http://localhost:5173';
+// CORS — strict allow-list in all environments (comma-separated ALLOWED_ORIGIN supported).
+const allowedOrigins = (process.env.ALLOWED_ORIGIN || 'http://localhost:5173')
+  .split(',').map((s) => s.trim()).filter(Boolean);
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || origin === allowedOrigin || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(new Error('CORS policy violation'));
-    }
+    // No Origin header = same-origin or non-browser client (allowed). Otherwise must be allow-listed.
+    if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+    else callback(new Error('CORS policy violation'));
   },
   credentials: true,
 }));
@@ -95,7 +94,7 @@ function handleImageUpload(req, res, next) {
 }
 
 // Init DB and order store
-initDb();
+await initDb();
 const orderStore = createOrderStore({ db });
 
 // Stripe (optional)
@@ -150,18 +149,20 @@ app.get('/api/products/:id/reviews', (req, res) => {
     res.json(rows || []);
   });
 });
-app.post('/api/products/:id/reviews', (req, res) => {
+app.post('/api/products/:id/reviews', async (req, res) => {
+  // Reviews require a signed-in customer — no more anonymous "Verified Customer".
   const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
-  let customerName = 'Verified Customer';
+  let customerName = null;
   if (token) {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       if (decoded.id) {
-        const customer = db.get('SELECT name FROM customers WHERE id = ?', [decoded.id]);
-        if (customer) customerName = customer.name || customerName;
+        const customer = await db.get('SELECT name FROM customers WHERE id = ?', [decoded.id]);
+        if (customer) customerName = customer.name || 'Customer';
       }
     } catch (_) {}
   }
+  if (!customerName) return res.status(401).json({ error: 'Please sign in to leave a review.' });
   const { rating, comment } = req.body;
   if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
   if (!comment?.trim()) return res.status(400).json({ error: 'Review comment is required' });
@@ -181,24 +182,27 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
     const { cartItems, paymentMethodId } = req.body;
     if (!Array.isArray(cartItems) || cartItems.length === 0) return res.status(400).json({ error: 'Cart is empty' });
     let serverTotal = 0;
-    // 1. Validate pricing and stock availability
+    // 1. Validate pricing and stock availability (authoritative, server-side)
     for (const item of cartItems) {
-      const product = db.get('SELECT name, price, quantity FROM products WHERE id = ?', [item.id]);
+      const product = await db.get('SELECT name, price, quantity FROM products WHERE id = ?', [item.id]);
       if (!product) return res.status(400).json({ error: `Product ID ${item.id} not found` });
-      
+
       const requestedQty = Math.max(1, parseInt(item.quantity) || 1);
       if (requestedQty > product.quantity) {
-        return res.status(400).json({ 
-          error: `Insufficient stock for "${product.name}". Only ${product.quantity} items are available.` 
+        return res.status(400).json({
+          error: `Insufficient stock for "${product.name}". Only ${product.quantity} items are available.`
         });
       }
-      
+
       serverTotal += product.price * requestedQty;
     }
     serverTotal = Math.round(serverTotal * 100) / 100;
-    
-    // 2. Process payment if Stripe is configured
-    if (stripe && paymentMethodId) {
+
+    // 2. Payment. If Stripe is configured a successful charge is REQUIRED;
+    //    otherwise the order is recorded as Unpaid (never silently "Completed").
+    let paymentStatus = 'Unpaid';
+    if (stripe) {
+      if (!paymentMethodId) return res.status(402).json({ error: 'Payment information is required.' });
       const pi = await stripe.paymentIntents.create({
         amount: Math.round(serverTotal * 100),
         currency: 'usd',
@@ -207,19 +211,32 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
         automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
       });
       if (pi.status !== 'succeeded') return res.status(402).json({ error: 'Payment was not successful.' });
+      paymentStatus = 'Paid';
     }
-    
-    // 3. Deduct inventory from the database
+
+    // 3. Deduct inventory atomically — the conditional UPDATE prevents overselling
+    //    under concurrent checkouts (0 rows changed = no longer enough stock).
     for (const item of cartItems) {
       const requestedQty = Math.max(1, parseInt(item.quantity) || 1);
-      db.run('UPDATE products SET quantity = quantity - ? WHERE id = ?', [requestedQty, item.id]);
+      const result = await db.run(
+        'UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?',
+        [requestedQty, item.id, requestedQty]
+      );
+      if (!result || result.changes === 0) {
+        return res.status(409).json({ error: `Stock changed while checking out. Please review your cart.` });
+      }
     }
-    
-    const safePayload = { ...req.body, totalAmount: serverTotal };
+
+    const safePayload = {
+      ...req.body,
+      totalAmount: serverTotal,
+      paymentStatus,
+      orderStatus: paymentStatus === 'Paid' ? 'Processing' : 'Pending Payment',
+    };
     delete safePayload.cardNumber; delete safePayload.expiryDate; delete safePayload.cvc;
     const { orderId, order } = await orderStore.createCheckout(safePayload);
     if (order) sendOrderEmails(order).catch(err => console.error('Order email error:', err));
-    res.status(201).json({ message: 'Order processed successfully', orderId });
+    res.status(201).json({ message: 'Order processed successfully', orderId, paymentStatus });
   } catch (err) {
     console.error('Checkout error:', err);
     res.status(500).json({ error: 'Failed to process order. Please try again.' });
@@ -353,7 +370,7 @@ app.get('/api/customer/orders', (req, res) => {
 
 // Dynamic sitemap
 app.get('/sitemap.xml', (req, res) => {
-  const base = process.env.SITE_URL || 'https://selestial.vercel.app';
+  const base = process.env.SITE_URL || 'https://selestial-lovat.vercel.app';
   db.all('SELECT id FROM products', (err, rows) => {
     const staticPaths = ['/', '/products', '/about', '/faq', '/care-guide', '/size-guide', '/shipping-returns', '/privacy', '/terms', '/contact', '/auth'];
     const productPaths = (rows || []).map(r => `/product/${r.id}`);

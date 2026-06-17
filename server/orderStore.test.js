@@ -59,7 +59,8 @@ test('blob checkout storage persists records for admin readers', async () => {
     address: 'Moon Street',
     cartItems: [{ name: 'Lunar Ring', price: 120, quantity: 2, size: 'M', color: 'Silver' }],
     totalAmount: 240,
-    paymentMethod: 'Credit Card'
+    paymentMethod: 'Credit Card',
+    paymentStatus: 'Paid'
   });
 
   assert.equal(result.orderId, 'order-100');
@@ -78,7 +79,7 @@ test('blob checkout storage persists records for admin readers', async () => {
 
   assert.equal(payments.length, 1);
   assert.equal(payments[0].order_id, 'order-100');
-  assert.equal(payments[0].status, 'Completed');
+  assert.equal(payments[0].status, 'Paid');
 
   assert.equal(customers.length, 1);
   assert.equal(customers[0].email, 'asha@example.com');

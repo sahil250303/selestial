@@ -112,9 +112,9 @@ export default function Products() {
             const imageSrcSet = getImageSrcSet(product.image, [320, 640, 960], { quality: 72 });
 
             return (
-              <div
+              <Link
                 key={product.id}
-                onClick={() => navigate(`/product/${product.id}`)}
+                to={`/product/${product.id}`}
                 className="product-card group flex flex-col glass-panel overflow-hidden cursor-pointer"
               >
                 <div className="h-96 overflow-hidden relative">
@@ -138,7 +138,7 @@ export default function Products() {
 
                   {/* Wishlist */}
                   <button
-                    onClick={(e) => { e.stopPropagation(); toggleWishlist(product); }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWishlist(product); }}
                     aria-label={isInWishlist(product.id) ? 'Remove from wishlist' : 'Add to wishlist'}
                     className={`absolute top-4 right-4 p-2 rounded-full backdrop-blur-md border transition-all z-20 ${isInWishlist(product.id) ? 'bg-red-500 border-red-500 text-white' : 'bg-black/20 border-white/20 text-white hover:bg-black/40 hover:border-white/40'}`}
                   >
@@ -149,6 +149,7 @@ export default function Products() {
                   {!isOOS && (
                     <button
                       onClick={(e) => {
+                        e.preventDefault();
                         e.stopPropagation();
                         addToCart({ ...product, size: 'Free Size', color: 'Silver' });
                       }}
@@ -166,7 +167,7 @@ export default function Products() {
                   </p>
                   <p className="text-xs text-silver leading-relaxed font-light">{product.description}</p>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>
