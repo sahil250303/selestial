@@ -7,6 +7,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { getImageSrcSet, getOptimizedImageUrl } from '../utils/imageUrls.js';
 import Breadcrumb from '../components/Breadcrumb';
+import { getCustomerToken } from '../utils/auth';
 
 function StarRating({ rating, max = 5, size = 16 }) {
   return (
@@ -35,6 +36,8 @@ export default function ProductDetails() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const loggedIn = !!getCustomerToken();
 
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -77,10 +80,12 @@ export default function ProductDetails() {
   const handleReviewSubmit = async (e) => {
     e.preventDefault();
     setReviewSubmitting(true);
+    setReviewError('');
     try {
+      const token = getCustomerToken();
       const res = await fetch(`/api/products/${id}/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify(reviewForm),
       });
       if (res.ok) {
@@ -88,8 +93,13 @@ export default function ProductDetails() {
         setReviews((prev) => [{ id: newReview.id, ...reviewForm, date: new Date().toISOString().split('T')[0], customer_name: 'You' }, ...prev]);
         setReviewSubmitted(true);
         setShowReviewForm(false);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        setReviewError(d.error || 'Could not submit your review. Please try again.');
       }
-    } catch (_) {}
+    } catch (_) {
+      setReviewError('Network error. Please try again.');
+    }
     setReviewSubmitting(false);
   };
 
@@ -293,12 +303,17 @@ export default function ProductDetails() {
           <h2 className="font-serif text-2xl text-white tracking-widest uppercase">
             Customer Reviews {reviews.length > 0 && <span className="text-silver-dark text-sm ml-2">({reviews.length})</span>}
           </h2>
-          {!reviewSubmitted && (
+          {!reviewSubmitted && (loggedIn ? (
             <button onClick={() => setShowReviewForm(!showReviewForm)}
               className="px-6 py-2 text-xs font-bold tracking-widest border border-white/20 text-white hover:bg-white/5 uppercase transition-colors rounded-sm">
               {showReviewForm ? 'Cancel' : 'Write a Review'}
             </button>
-          )}
+          ) : (
+            <Link to="/auth"
+              className="px-6 py-2 text-xs font-bold tracking-widest border border-white/20 text-white hover:bg-white/5 uppercase transition-colors rounded-sm">
+              Sign in to review
+            </Link>
+          ))}
         </div>
 
         {/* Review form */}
@@ -323,6 +338,7 @@ export default function ProductDetails() {
                 placeholder="Share your experience with this piece..."
                 className="w-full bg-dark/50 border border-white/10 p-3 text-white text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus:border-white/50 transition-colors rounded-sm resize-none" />
             </div>
+            {reviewError && <p className="text-red-400 text-xs mb-3 tracking-wider">{reviewError}</p>}
             <button type="submit" disabled={reviewSubmitting}
               className="px-8 py-3 text-xs font-bold tracking-widest bg-white text-black hover:bg-silver-light uppercase transition-colors rounded-sm disabled:opacity-70">
               {reviewSubmitting ? 'Submitting...' : 'Submit Review'}

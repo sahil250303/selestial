@@ -40,8 +40,11 @@ function CheckoutForm({ cart, total, formData, handleChange, isPreFilled }) {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const stripe   = stripePromise ? useStripe()   : null;
-  const elements = stripePromise ? useElements() : null;
+  // Rules of Hooks: call these unconditionally. The form is always rendered inside
+  // <Elements> (with stripe={null} when unconfigured), so the hooks are valid and
+  // simply return null until Stripe is ready.
+  const stripe   = useStripe();
+  const elements = useElements();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -265,13 +268,10 @@ export default function Checkout() {
       <div className="grid lg:grid-cols-2 gap-16">
         {/* Form */}
         <div className="glass-panel p-8">
-          {stripePromise ? (
-            <Elements stripe={stripePromise}>
-              {formContent}
-            </Elements>
-          ) : (
-            formContent
-          )}
+          {/* Always wrap in <Elements> (stripe may be null) so hooks stay valid. */}
+          <Elements stripe={stripePromise}>
+            {formContent}
+          </Elements>
         </div>
 
         {/* Order Summary */}
@@ -299,9 +299,19 @@ export default function Checkout() {
               </div>
             ))}
           </div>
-          <div className="mt-8 pt-6 border-t border-white/10 flex justify-between uppercase tracking-widest text-lg text-white font-medium">
-            <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+          <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
+            <div className="flex justify-between uppercase tracking-widest text-xs text-silver">
+              <span>Subtotal</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between uppercase tracking-widest text-xs text-silver">
+              <span>Shipping</span>
+              <span className="text-green-400">Complimentary</span>
+            </div>
+            <div className="flex justify-between uppercase tracking-widest text-lg text-white font-medium pt-3 border-t border-white/10">
+              <span>Total</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
           </div>
         </div>
       </div>

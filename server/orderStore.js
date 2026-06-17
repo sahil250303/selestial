@@ -54,7 +54,7 @@ function normalizeCheckout(payload, idFactory, now) {
       address,
       items: JSON.stringify(cartItems),
       total_amount: totalAmount,
-      status: 'Processing',
+      status: payload.orderStatus || 'Processing',
       date,
       created_at
     },
@@ -63,7 +63,8 @@ function normalizeCheckout(payload, idFactory, now) {
       order_id: id,
       amount: totalAmount,
       method: paymentMethod,
-      status: 'Completed',
+      // Honest payment state — set by the checkout route based on the real charge.
+      status: payload.paymentStatus || 'Pending',
       date,
       created_at
     },
@@ -211,23 +212,23 @@ function createSqliteOrderStore({ db, idFactory, now }) {
   return {
     async createCheckout(payload) {
       const { order, payment, customer } = normalizeCheckout(payload, idFactory, now);
-      const existingCustomer = db.get('SELECT id FROM customers WHERE email = ? OR phone = ?', [customer.email || null, customer.phone || null]);
+      const existingCustomer = await db.get('SELECT id FROM customers WHERE email = ? OR phone = ?', [customer.email || null, customer.phone || null]);
 
       if (!existingCustomer) {
-        db.run(
-          'INSERT INTO customers (name, email, phone, auth_provider, join_date) VALUES (?, ?, ?, ?, ?)',
-          [customer.name, customer.email || null, customer.phone || null, customer.auth_provider, customer.join_date]
+        await db.run(
+          'INSERT INTO customers (name, email, phone, auth_provider, join_date, address) VALUES (?, ?, ?, ?, ?, ?)',
+          [customer.name, customer.email || null, customer.phone || null, customer.auth_provider, customer.join_date, order.address || null]
         );
       }
 
-      const orderResult = db.run(
+      const orderResult = await db.run(
         'INSERT INTO orders (customer_name, email, phone, address, items, total_amount, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         [order.customer_name, order.email, order.phone, order.address, order.items, order.total_amount, order.status, order.date]
       );
       const orderId = orderResult.lastID;
       const finalOrder = { ...order, id: orderId };
 
-      db.run(
+      await db.run(
         'INSERT INTO payments (order_id, amount, method, status, date) VALUES (?, ?, ?, ?, ?)',
         [orderId, payment.amount, payment.method, payment.status, payment.date]
       );
@@ -250,24 +251,24 @@ function createSqliteOrderStore({ db, idFactory, now }) {
       );
     },
     async deleteOrder(id) {
-      db.run('DELETE FROM orders WHERE id = ?', [id]);
+      await db.run('DELETE FROM orders WHERE id = ?', [id]);
     },
     async deletePayment(id) {
-      db.run('DELETE FROM payments WHERE id = ?', [id]);
+      await db.run('DELETE FROM payments WHERE id = ?', [id]);
     },
     async deleteCustomer(id) {
-      db.run('DELETE FROM customers WHERE id = ?', [id]);
+      await db.run('DELETE FROM customers WHERE id = ?', [id]);
     },
     async clearOrders() {
-      db.run('DELETE FROM orders', []);
-      db.run("DELETE FROM sqlite_sequence WHERE name='orders'", []);
+      await db.run('DELETE FROM orders', []);
+      await db.run("DELETE FROM sqlite_sequence WHERE name='orders'", []).catch(() => {});
     },
     async clearPayments() {
-      db.run('DELETE FROM payments', []);
+      await db.run('DELETE FROM payments', []);
     },
     async clearCustomers() {
-      db.run('DELETE FROM customers', []);
-      db.run("DELETE FROM sqlite_sequence WHERE name='customers'", []);
+      await db.run('DELETE FROM customers', []);
+      await db.run("DELETE FROM sqlite_sequence WHERE name='customers'", []).catch(() => {});
     }
   };
 }

@@ -4,12 +4,25 @@ import { Helmet } from 'react-helmet-async';
 import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
-import { mockProducts } from '../data/mockProducts';
 import { getOptimizedImageUrl } from '../utils/imageUrls';
 
 export default function Home() {
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
+
+  // Featured products from the live catalog — no more hardcoded mock data that
+  // could drift from the real store or link to non-existent product IDs.
+  const [picks, setPicks] = useState([]);
+  useEffect(() => {
+    fetch('/api/products')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!Array.isArray(data)) return;
+        const featured = data.filter((p) => p.featured);
+        setPicks((featured.length ? featured : data).slice(0, 4));
+      })
+      .catch(() => setPicks([]));
+  }, []);
 
   // Hero Slider
   const [currentHero, setCurrentHero] = useState(0);
@@ -82,6 +95,8 @@ export default function Home() {
         <meta property="og:url" content="https://selestial.vercel.app/" />
         <meta property="og:type" content="website" />
       </Helmet>
+      {/* Single page-level H1 for accessibility & SEO (visually hidden). */}
+      <h1 className="sr-only">Selestial — Universe of Silver: premium 925 sterling silver jewellery</h1>
       {/* Hero Section */}
       <section className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-black select-none">
         {heroSlides.map((slide, idx) => (
@@ -95,15 +110,19 @@ export default function Home() {
             <img
               src={slide.image}
               alt={slide.title}
+              width={1600}
+              height={1000}
+              fetchPriority={idx === 0 ? 'high' : 'low'}
+              loading={idx === 0 ? 'eager' : 'lazy'}
+              decoding="async"
               className="w-full h-full object-cover transform scale-100 transition-transform duration-[6000ms] ease-out"
-              loading="eager"
             />
             {/* Content Overlay */}
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6 pt-28 md:pt-0">
               <span className="text-[10px] md:text-xs tracking-[0.4em] text-silver uppercase mb-4 font-sans font-medium">NEW COLLECTION</span>
-              <h1 className="font-serif text-3xl md:text-5xl lg:text-6xl tracking-widest text-white uppercase mb-6 max-w-3xl leading-tight">
+              <h2 className="font-serif text-3xl md:text-5xl lg:text-6xl tracking-widest text-white uppercase mb-6 max-w-3xl leading-tight">
                 {slide.title}
-              </h1>
+              </h2>
               <p className="font-sans text-xs md:text-sm tracking-[0.15em] text-silver-light max-w-lg mb-10 leading-relaxed font-light">
                 {slide.subtitle}
               </p>
@@ -290,7 +309,7 @@ export default function Home() {
           </h2>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-            {mockProducts.slice(0, 4).map((product) => {
+            {picks.map((product) => {
               const inWish = isInWishlist(product.id);
               return (
                 <div key={product.id} className="group flex flex-col relative">

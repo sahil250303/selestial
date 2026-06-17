@@ -1,9 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'url'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // react-helmet-async is broken under React 19 (empty/duplicate <title>).
+      // Redirect it to our React-19-native shim — no page imports need changing.
+      'react-helmet-async': fileURLToPath(new URL('./src/components/Seo.jsx', import.meta.url)),
+    },
+  },
   server: {
     proxy: {
       '/api': {

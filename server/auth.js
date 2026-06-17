@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import twilio from 'twilio';
 import { db } from './db.js';
 import dotenv from 'dotenv';
@@ -9,6 +10,9 @@ if (!process.env.JWT_SECRET) {
   throw new Error('FATAL: JWT_SECRET env variable is not set. Generate: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"');
 }
 const JWT_SECRET = process.env.JWT_SECRET;
+
+// OTP codes are never stored in clear text — only a SHA-256 hash is persisted.
+const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
 
 export const loginAdmin = (req, res) => {
   const { username, password } = req.body;
@@ -54,17 +58,18 @@ export const signupCustomer = (req, res) => {
 };
 
 export const loginCustomer = (req, res) => {
-  const { email, phone, password, auth_provider } = req.body;
+  // SECURITY: the password route ALWAYS verifies a password. It must never trust
+  // a client-supplied `auth_provider` to skip verification — Google and OTP have
+  // their own server-verified routes (`/customer/google`, `/customer/verify-otp`).
+  const { email, phone, password } = req.body;
   const param = email || phone;
   if (!param) return res.status(400).json({ error: 'Email or Phone is required' });
   const query = email ? 'SELECT * FROM customers WHERE email = ?' : 'SELECT * FROM customers WHERE phone = ?';
   db.get(query, [param], (err, user) => {
     if (err) return res.status(500).json({ error: 'Database error' });
-    if (!user) return res.status(401).json({ error: 'User not found' });
-    if (auth_provider !== 'google' && auth_provider !== 'otp') {
-      if (!password || !user.password) return res.status(401).json({ error: 'Invalid credentials' });
-      if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    // Generic message — do not reveal whether the account exists.
+    if (!user || !user.password) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!password || !bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
     const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
   });
@@ -110,9 +115,9 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
 export const sendOtp = (req, res) => {
   const { phone } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone is required' });
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString(); // cryptographically secure
   const expiresAt = Date.now() + 10 * 60 * 1000;
-  db.run('INSERT OR REPLACE INTO otp_sessions (phone, otp, expires_at) VALUES (?, ?, ?)', [phone, otp, expiresAt], async (err) => {
+  db.run('INSERT OR REPLACE INTO otp_sessions (phone, otp, expires_at) VALUES (?, ?, ?)', [phone, hashOtp(otp), expiresAt], async (err) => {
     if (err) return res.status(500).json({ error: 'Database error saving OTP session' });
     if (twilioClient && process.env.TWILIO_PHONE_NUMBER) {
       try {
@@ -140,7 +145,7 @@ export const verifyOtp = (req, res) => {
     if (err) return res.status(500).json({ error: 'Database error verifying OTP' });
     if (!session) return res.status(400).json({ error: 'No active OTP session found' });
     if (Date.now() > session.expires_at) return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
-    if (session.otp !== otp) return res.status(401).json({ error: 'Invalid OTP' });
+    if (session.otp !== hashOtp(otp)) return res.status(401).json({ error: 'Invalid OTP' });
     db.run('DELETE FROM otp_sessions WHERE phone = ?', [phone]);
     db.get('SELECT * FROM customers WHERE phone = ?', [phone], (err2, user) => {
       if (err2) return res.status(500).json({ error: 'Database error looking up user' });

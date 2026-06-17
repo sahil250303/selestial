@@ -473,9 +473,9 @@ export default function Navbar() {
                 </div>
               )}
               <div className="flex justify-center space-x-8 text-white/20">
-                <a href="#" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Instagram</span></a>
-                <a href="#" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Pinterest</span></a>
-                <a href="#" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Support</span></a>
+                <a href="https://www.instagram.com/selestial" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Instagram</span></a>
+                <a href="https://www.pinterest.com/selestial" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Pinterest</span></a>
+                <Link to="/contact" onClick={() => setMobileMenuOpen(false)} className="hover:text-white transition-colors"><span className="text-[10px] tracking-widest uppercase font-sans">Support</span></Link>
               </div>
             </div>
           </div>

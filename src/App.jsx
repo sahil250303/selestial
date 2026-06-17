@@ -1,35 +1,38 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
-import Products from './pages/Products';
-import Checkout from './pages/Checkout';
-import CartPage from './pages/CartPage';
-import ProductDetails from './pages/ProductDetails';
-import Auth from './pages/Auth';
-import Profile from './pages/Profile';
 import CanvasBackground from './components/CanvasBackground';
 import Footer from './components/Footer';
-import AdminLogin from './pages/admin/AdminLogin';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import RequireAuth from './pages/admin/RequireAuth';
 import FloatingCart from './components/FloatingCart';
 import ServiceSection from './components/ServiceSection';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WishlistProvider } from './context/WishlistContext';
-import WishlistPage from './pages/WishlistPage';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
-import NotFound from './pages/NotFound';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import ShippingReturns from './pages/ShippingReturns';
-import Contact from './pages/Contact';
-import FAQ from './pages/FAQ';
-import CareGuide from './pages/CareGuide';
-import SizeGuide from './pages/SizeGuide';
-import About from './pages/About';
 import { ToastProvider } from './components/Toast';
+
+// Route-level code splitting — only the Home page ships in the initial bundle;
+// everything else (and Stripe/admin code) loads on demand.
+const Products = lazy(() => import('./pages/Products'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const ProductDetails = lazy(() => import('./pages/ProductDetails'));
+const Auth = lazy(() => import('./pages/Auth'));
+const Profile = lazy(() => import('./pages/Profile'));
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const WishlistPage = lazy(() => import('./pages/WishlistPage'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const ShippingReturns = lazy(() => import('./pages/ShippingReturns'));
+const Contact = lazy(() => import('./pages/Contact'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const CareGuide = lazy(() => import('./pages/CareGuide'));
+const SizeGuide = lazy(() => import('./pages/SizeGuide'));
+const About = lazy(() => import('./pages/About'));
 
 // ── Cart Context ──────────────────────────────────────────────────────────────
 const CartContext = createContext();
@@ -119,6 +122,7 @@ function App() {
             <div id="main-content" className="relative z-10 font-sans text-silver-light pb-20">
               <Navbar />
               <ErrorBoundary>
+              <Suspense fallback={<div className="min-h-screen" aria-busy="true" />}>
               <Routes>
                 {/* Core */}
                 <Route path="/" element={<Home />} />
@@ -156,6 +160,7 @@ function App() {
                 {/* 404 — must be last */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
               </ErrorBoundary>
               <ServiceSection />
               <Footer />

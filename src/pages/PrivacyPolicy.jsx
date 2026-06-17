@@ -31,8 +31,12 @@ export default function PrivacyPolicy() {
         <p>We do not sell, rent, or trade your personal information to third parties.</p>
       </Section>
 
-      <Section title="Cookies">
-        <p>We use essential session cookies to keep you logged in and remember your preferences. We use analytics cookies (Vercel Analytics) to understand how customers use our site. You may disable cookies in your browser settings, though some features may not function correctly.</p>
+      <Section title="Cookies & Local Storage">
+        <p>We keep you signed in using a token stored in your browser&rsquo;s local storage (not a tracking cookie), and we store your shopping cart locally so it survives a page refresh. We use privacy-friendly analytics (Vercel Analytics &amp; Speed Insights) to understand aggregate usage. You can clear this data at any time through your browser settings.</p>
+      </Section>
+
+      <Section title="Third-Party Services">
+        <p>We rely on trusted processors to run the store: Stripe (payment processing), Google (optional &ldquo;Sign in with Google&rdquo;), Twilio (optional SMS verification codes), and our email provider (order notifications). Each receives only the data needed to perform its function, and we never store raw card details.</p>
       </Section>
 
       <Section title="Data Retention">

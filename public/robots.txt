@@ -5,4 +5,4 @@ Disallow: /admin/
 Disallow: /api/
 
 # Sitemap
-Sitemap: https://selestial.vercel.app/sitemap.xml
+Sitemap: https://selestial-lovat.vercel.app/sitemap.xml
