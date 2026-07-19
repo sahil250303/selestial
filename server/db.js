@@ -206,23 +206,21 @@ export function initDb() {
       expires_at INTEGER
     )`);
 
-    // Seed or update the admin user.
     db.get("SELECT id FROM admin_users WHERE username = ?", ['admin'], (err, row) => {
       const configuredPassword = process.env.ADMIN_PASSWORD;
-      if (configuredPassword) {
-        const hashedPassword = bcrypt.hashSync(configuredPassword, 10);
-        if (row) {
-          db.run("UPDATE admin_users SET password = ? WHERE username = ?", [hashedPassword, 'admin']);
-        } else {
-          db.run("INSERT INTO admin_users (username, password) VALUES (?, ?)", ['admin', hashedPassword]);
+      if (!configuredPassword) {
+        if (!row) {
+          console.warn('[db] ADMIN_PASSWORD is not set; skipping admin user seed. Set ADMIN_PASSWORD before login will work.');
         }
         return;
       }
 
-      if (!row) {
-        const hashedPassword = bcrypt.hashSync('Admin123!', 10);
+      const hashedPassword = bcrypt.hashSync(configuredPassword, 10);
+      if (row) {
+        db.run("UPDATE admin_users SET password = ? WHERE username = ?", [hashedPassword, 'admin']);
+      } else {
         db.run("INSERT INTO admin_users (username, password) VALUES (?, ?)", ['admin', hashedPassword]);
-        console.log("Seeded default admin user: admin / Admin123!");
+        console.log('[db] Seeded admin user from ADMIN_PASSWORD env.');
       }
     });
 
