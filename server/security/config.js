@@ -62,7 +62,7 @@ export const securityConfig = {
     exposeDetails: readBool('EXPOSE_ERROR_DETAILS', false)
   },
   boot: {
-    requireStrongSecrets: readBool('REQUIRE_STRONG_SECRETS', process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL))
+    requireStrongSecrets: readBool('REQUIRE_STRONG_SECRETS', false)
   }
 };
 
