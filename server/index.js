@@ -15,12 +15,25 @@ import { initDb, db } from './db.js';
 import { loginAdmin, verifyToken, loginCustomer, signupCustomer, sendOtp, verifyOtp, loginWithGoogle } from './auth.js';
 import { createOrderStore } from './orderStore.js';
 import { sendOrderEmails } from './email.js';
-import { optimizeUploadedImage, sendUploadImage } from './imageOptimizer.js';
+import { optimizeUploadedImage, sendUploadImage, ALLOWED_IMAGE_EXTENSIONS, ALLOWED_IMAGE_MIMETYPES } from './imageOptimizer.js';
+import { rateLimits, jsonBodyLimit, uploadLimits } from './config.js';
+import { validateBody, validateIntParam, validateSafeIdParam } from './validate.js';
+import {
+  adminLoginSchema, customerSignupSchema, customerLoginSchema, googleLoginSchema,
+  sendOtpSchema, verifyOtpSchema, reviewSchema, newsletterSchema, checkoutSchema,
+  productSchema, validateAdditionalImages,
+} from './schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Behind Vercel/other proxies the client IP arrives in X-Forwarded-For; the
+// rate limiter must key on the real client, not the proxy. Configurable via
+// TRUST_PROXY (number of hops or "true"); defaults to 1 hop on Vercel.
+const trustProxy = process.env.TRUST_PROXY ?? (process.env.VERCEL ? '1' : '');
+if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? true : Number(trustProxy));
 
 // Security headers
 app.use(helmet({
@@ -45,19 +58,55 @@ app.use(cors({
   origin: (origin, callback) => {
     // No Origin header = same-origin or non-browser client (allowed). Otherwise must be allow-listed.
     if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-    else callback(new Error('CORS policy violation'));
+    else callback(Object.assign(new Error('CORS policy violation'), { status: 403 }));
   },
   credentials: true,
 }));
 
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: jsonBodyLimit }));
 
-// Rate limiters
-const loginLimiter    = rateLimit({ windowMs: 15*60*1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many login attempts. Please try again in 15 minutes.' } });
-const otpSendLimiter  = rateLimit({ windowMs: 10*60*1000, max: 5,  standardHeaders: true, legacyHeaders: false, message: { error: 'Too many OTP requests. Please wait 10 minutes.' } });
-const otpVerifyLimiter= rateLimit({ windowMs: 10*60*1000, max: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many OTP attempts. Please request a new OTP.' } });
-const checkoutLimiter = rateLimit({ windowMs: 60*1000,    max: 5,  message: { error: 'Too many checkout requests.' } });
+// ── Rate limiting ─────────────────────────────────────────────────────────────
+// Tiered per-IP limits (all thresholds env-configurable — see config.js):
+//   1. auth routes    — strict, plus per-ACCOUNT exponential backoff in auth.js
+//   2. public /api    — moderate (anonymous storefront traffic)
+//   3. authenticated  — loose (signed-in customers and the admin dashboard)
+// Sensitive side-effect routes (checkout, newsletter, reviews, uploads) carry
+// an extra dedicated limiter on top.
+
+function hasValidJwt(req) {
+  if (req._jwtChecked !== undefined) return req._jwtChecked;
+  const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
+  let valid = false;
+  if (token) {
+    try { jwt.verify(token, process.env.JWT_SECRET); valid = true; } catch { /* invalid token */ }
+  }
+  req._jwtChecked = valid;
+  return valid;
+}
+
+const limiterDefaults = { standardHeaders: true, legacyHeaders: false };
+const makeLimiter = (opts) => rateLimit({ ...limiterDefaults, ...opts });
+
+const publicLimiter = makeLimiter({
+  ...rateLimits.public,
+  skip: hasValidJwt,
+  message: { error: 'Too many requests. Please slow down and try again shortly.' },
+});
+const authedLimiter = makeLimiter({
+  ...rateLimits.authed,
+  skip: (req) => !hasValidJwt(req),
+  message: { error: 'Too many requests. Please slow down and try again shortly.' },
+});
+app.use('/api', publicLimiter, authedLimiter);
+
+const loginLimiter     = makeLimiter({ ...rateLimits.auth,      message: { error: 'Too many login attempts. Please try again later.' } });
+const otpSendLimiter   = makeLimiter({ ...rateLimits.otpSend,   message: { error: 'Too many OTP requests. Please wait before requesting another code.' } });
+const otpVerifyLimiter = makeLimiter({ ...rateLimits.otpVerify, message: { error: 'Too many OTP attempts. Please request a new OTP.' } });
+const checkoutLimiter  = makeLimiter({ ...rateLimits.checkout,  message: { error: 'Too many checkout requests.' } });
+const newsletterLimiter= makeLimiter({ ...rateLimits.newsletter,message: { error: 'Too many subscription requests. Please try again later.' } });
+const reviewLimiter    = makeLimiter({ ...rateLimits.review,    message: { error: 'Too many reviews submitted. Please try again later.' } });
+const uploadLimiter    = makeLimiter({ ...rateLimits.upload,    message: { error: 'Too many uploads. Please try again later.' } });
 
 // Upload directory
 const bundledUploadDir = join(__dirname, 'uploads');
@@ -71,25 +120,50 @@ if (process.env.VERCEL && fs.existsSync(bundledUploadDir)) {
   }
 }
 
-// Multer
+// ── Multer ────────────────────────────────────────────────────────────────────
+// Defense in depth for uploads:
+//   1. fileFilter — extension AND mimetype allowlist (both client-controlled,
+//      so this is only a cheap first gate).
+//   2. Server-generated filenames — the original name never touches the disk.
+//   3. sharp re-encode (below) — the CONTENT must decode as a real image; the
+//      stored artifact is always a freshly encoded .webp, never client bytes.
+//   4. Files live outside the static web root and are only reachable through
+//      /api/uploads/:filename, which allowlists extensions again on the way out.
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random() * 1e9) + extname(file.originalname)),
+  filename: (req, file, cb) => {
+    const ext = extname(file.originalname).toLowerCase();
+    const safeExt = ALLOWED_IMAGE_EXTENSIONS.includes(ext) ? ext : '.img';
+    cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${safeExt}`);
+  },
 });
 const upload = multer({
   storage,
-  limits: { files: 10, fileSize: 10 * 1024 * 1024 },
+  limits: { files: uploadLimits.maxFiles, fileSize: uploadLimits.maxFileSizeBytes },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype?.startsWith('image/')) { cb(new Error('Only image uploads are supported')); return; }
+    const ext = extname(file.originalname || '').toLowerCase();
+    if (!ALLOWED_IMAGE_MIMETYPES.includes(file.mimetype) || !ALLOWED_IMAGE_EXTENSIONS.includes(ext)) {
+      cb(new Error('UNSUPPORTED_UPLOAD_TYPE'));
+      return;
+    }
     cb(null, true);
   },
 });
 
 function handleImageUpload(req, res, next) {
-  upload.array('images', 10)(req, res, (err) => {
+  upload.array('images', uploadLimits.maxFiles)(req, res, (err) => {
     if (!err) return next();
-    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ error: 'Image files must be 10MB or smaller' });
-    res.status(400).json({ error: err.message || 'Image upload failed' });
+    if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: `Image files must be ${Math.floor(uploadLimits.maxFileSizeBytes / (1024 * 1024))}MB or smaller` });
+    }
+    if (err instanceof multer.MulterError && (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE')) {
+      return res.status(400).json({ error: `At most ${uploadLimits.maxFiles} images per upload` });
+    }
+    if (err.message === 'UNSUPPORTED_UPLOAD_TYPE') {
+      return res.status(400).json({ error: 'Only JPEG, PNG, WebP, GIF or AVIF images are supported' });
+    }
+    console.error('Upload error:', err);
+    res.status(400).json({ error: 'Image upload failed' });
   });
 }
 
@@ -115,13 +189,13 @@ app.get('/api/uploads/:filename', async (req, res) => {
   catch (err) { console.error('Image error:', err); res.status(500).json({ error: 'Image processing error' }); }
 });
 
-// Auth routes
-app.post('/api/auth/login',                  loginLimiter,     loginAdmin);
-app.post('/api/auth/customer/signup',        loginLimiter,     signupCustomer);
-app.post('/api/auth/customer/login',         loginLimiter,     loginCustomer);
-app.post('/api/auth/customer/google',        loginLimiter,     loginWithGoogle);
-app.post('/api/auth/customer/send-otp',      otpSendLimiter,   sendOtp);
-app.post('/api/auth/customer/verify-otp',    otpVerifyLimiter, verifyOtp);
+// Auth routes — strict per-IP limits here, per-account backoff inside auth.js.
+app.post('/api/auth/login',               loginLimiter,     validateBody(adminLoginSchema),     loginAdmin);
+app.post('/api/auth/customer/signup',     loginLimiter,     validateBody(customerSignupSchema), signupCustomer);
+app.post('/api/auth/customer/login',      loginLimiter,     validateBody(customerLoginSchema),  loginCustomer);
+app.post('/api/auth/customer/google',     loginLimiter,     validateBody(googleLoginSchema),    loginWithGoogle);
+app.post('/api/auth/customer/send-otp',   otpSendLimiter,   validateBody(sendOtpSchema),        sendOtp);
+app.post('/api/auth/customer/verify-otp', otpVerifyLimiter, validateBody(verifyOtpSchema),      verifyOtp);
 app.delete('/api/auth/logout', (req, res) => {
   res.clearCookie('authToken', { httpOnly: true, secure: true, sameSite: 'Strict' });
   res.json({ message: 'Logged out successfully' });
@@ -134,7 +208,7 @@ app.get('/api/products', (req, res) => {
     res.json(rows);
   });
 });
-app.get('/api/products/:id', (req, res) => {
+app.get('/api/products/:id', validateIntParam('id'), (req, res) => {
   db.get('SELECT * FROM products WHERE id = ?', [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     if (!row) return res.status(404).json({ error: 'Product not found' });
@@ -143,13 +217,13 @@ app.get('/api/products/:id', (req, res) => {
 });
 
 // Reviews
-app.get('/api/products/:id/reviews', (req, res) => {
+app.get('/api/products/:id/reviews', validateIntParam('id'), (req, res) => {
   db.all('SELECT * FROM product_reviews WHERE product_id = ? ORDER BY id DESC', [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     res.json(rows || []);
   });
 });
-app.post('/api/products/:id/reviews', async (req, res) => {
+app.post('/api/products/:id/reviews', reviewLimiter, validateIntParam('id'), validateBody(reviewSchema), async (req, res) => {
   // Reviews require a signed-in customer — no more anonymous "Verified Customer".
   const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
   let customerName = null;
@@ -160,12 +234,10 @@ app.post('/api/products/:id/reviews', async (req, res) => {
         const customer = await db.get('SELECT name FROM customers WHERE id = ?', [decoded.id]);
         if (customer) customerName = customer.name || 'Customer';
       }
-    } catch (_) {}
+    } catch { /* invalid token — handled below */ }
   }
   if (!customerName) return res.status(401).json({ error: 'Please sign in to leave a review.' });
   const { rating, comment } = req.body;
-  if (!rating || rating < 1 || rating > 5) return res.status(400).json({ error: 'Rating must be between 1 and 5' });
-  if (!comment?.trim()) return res.status(400).json({ error: 'Review comment is required' });
   const date = new Date().toISOString().split('T')[0];
   db.run('INSERT INTO product_reviews (product_id, customer_name, rating, comment, date) VALUES (?, ?, ?, ?, ?)',
     [req.params.id, customerName, parseInt(rating), comment.trim(), date],
@@ -177,17 +249,19 @@ app.post('/api/products/:id/reviews', async (req, res) => {
 });
 
 // Checkout with server-side price validation
-app.post('/api/checkout', checkoutLimiter, async (req, res) => {
+app.post('/api/checkout', checkoutLimiter, validateBody(checkoutSchema), async (req, res) => {
   try {
     const { cartItems, paymentMethodId } = req.body;
-    if (!Array.isArray(cartItems) || cartItems.length === 0) return res.status(400).json({ error: 'Cart is empty' });
     let serverTotal = 0;
-    // 1. Validate pricing and stock availability (authoritative, server-side)
+    // 1. Validate pricing and stock availability (authoritative, server-side).
+    //    Order items are REBUILT from the products table — client-supplied
+    //    names/prices are display-only and never stored.
+    const verifiedItems = [];
     for (const item of cartItems) {
-      const product = await db.get('SELECT name, price, quantity FROM products WHERE id = ?', [item.id]);
+      const product = await db.get('SELECT name, price, quantity, image FROM products WHERE id = ?', [item.id]);
       if (!product) return res.status(400).json({ error: `Product ID ${item.id} not found` });
 
-      const requestedQty = Math.max(1, parseInt(item.quantity) || 1);
+      const requestedQty = Math.max(1, parseInt(item.quantity ?? item.qty) || 1);
       if (requestedQty > product.quantity) {
         return res.status(400).json({
           error: `Insufficient stock for "${product.name}". Only ${product.quantity} items are available.`
@@ -195,6 +269,15 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
       }
 
       serverTotal += product.price * requestedQty;
+      verifiedItems.push({
+        id: item.id,
+        name: product.name,
+        price: product.price,
+        image: product.image,
+        quantity: requestedQty,
+        ...(item.size ? { size: String(item.size) } : {}),
+        ...(item.color ? { color: String(item.color) } : {}),
+      });
     }
     serverTotal = Math.round(serverTotal * 100) / 100;
 
@@ -216,11 +299,10 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
 
     // 3. Deduct inventory atomically — the conditional UPDATE prevents overselling
     //    under concurrent checkouts (0 rows changed = no longer enough stock).
-    for (const item of cartItems) {
-      const requestedQty = Math.max(1, parseInt(item.quantity) || 1);
+    for (const item of verifiedItems) {
       const result = await db.run(
         'UPDATE products SET quantity = quantity - ? WHERE id = ? AND quantity >= ?',
-        [requestedQty, item.id, requestedQty]
+        [item.quantity, item.id, item.quantity]
       );
       if (!result || result.changes === 0) {
         return res.status(409).json({ error: `Stock changed while checking out. Please review your cart.` });
@@ -228,12 +310,17 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
     }
 
     const safePayload = {
-      ...req.body,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      email: req.body.email,
+      phone: req.body.phone,
+      address: req.body.address,
+      paymentMethod: req.body.paymentMethod,
+      cartItems: verifiedItems,
       totalAmount: serverTotal,
       paymentStatus,
       orderStatus: paymentStatus === 'Paid' ? 'Processing' : 'Pending Payment',
     };
-    delete safePayload.cardNumber; delete safePayload.expiryDate; delete safePayload.cvc;
     const { orderId, order } = await orderStore.createCheckout(safePayload);
     if (order) sendOrderEmails(order).catch(err => console.error('Order email error:', err));
     res.status(201).json({ message: 'Order processed successfully', orderId, paymentStatus });
@@ -244,9 +331,8 @@ app.post('/api/checkout', checkoutLimiter, async (req, res) => {
 });
 
 // Newsletter
-app.post('/api/newsletter/subscribe', async (req, res) => {
-  const { email } = req.body;
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'A valid email address is required' });
+app.post('/api/newsletter/subscribe', newsletterLimiter, validateBody(newsletterSchema), async (req, res) => {
+  const email = req.body.email.trim().toLowerCase();
   db.get('SELECT id, discount_code FROM newsletter_subscribers WHERE email = ?', [email], async (err, existing) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     if (existing) return res.json({ message: 'You are already subscribed! Your discount code was sent to your email.' });
@@ -279,56 +365,49 @@ app.post('/api/newsletter/subscribe', async (req, res) => {
   });
 });
 
-// Product validation helper
-function validateProduct(body) {
-  const errors = [];
-  const { name, price, quantity, image } = body;
-  if (!name || typeof name !== 'string' || name.trim().length < 2) errors.push('Name must be at least 2 characters');
-  if (name && name.length > 200) errors.push('Name must be under 200 characters');
-  const priceNum = parseFloat(price);
-  if (!Number.isFinite(priceNum) || priceNum <= 0) errors.push('Price must be a positive number');
-  const qtyNum = parseInt(quantity);
-  if (quantity !== undefined && (!Number.isInteger(qtyNum) || qtyNum < 0)) errors.push('Quantity must be a non-negative integer');
-  if (image && typeof image === 'string' && image.length > 0) {
-    if (!image.startsWith('/') && !image.startsWith('https://')) errors.push('Image must be a relative path (/) or HTTPS URL');
-  }
-  return errors;
-}
-
-// Admin product routes
-app.post('/api/upload', verifyToken, handleImageUpload, async (req, res) => {
+// ── Admin routes (verifyToken enforces the admin role) ────────────────────────
+app.post('/api/upload', verifyToken, uploadLimiter, handleImageUpload, async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
   try {
+    // sharp re-encodes every file — content that is not a decodable image fails
+    // here and is rejected. Original client bytes are deleted either way.
     const optimizedFiles = await Promise.all(req.files.map(f => optimizeUploadedImage(f, { outputDir: uploadDir })));
     res.json({ urls: optimizedFiles.map(f => f.url) });
-  } catch (err) { console.error('Image processing error:', err); res.status(500).json({ error: 'Image processing failed' }); }
+  } catch (err) {
+    console.error('Image processing error:', err);
+    // Clean up every temp file from this batch — nothing unverified stays on disk.
+    await Promise.all(req.files.map(f => fs.promises.unlink(f.path).catch(() => {})));
+    res.status(400).json({ error: 'One or more files could not be processed as images' });
+  }
 });
 
-app.post('/api/products', verifyToken, (req, res) => {
-  const errs = validateProduct(req.body);
-  if (errs.length > 0) return res.status(400).json({ error: errs.join('; ') });
+function checkProductBody(req, res, next) {
+  const additionalImagesError = validateAdditionalImages(req.body.additional_images);
+  if (additionalImagesError) return res.status(400).json({ error: additionalImagesError });
+  next();
+}
+
+app.post('/api/products', verifyToken, validateBody(productSchema), checkProductBody, (req, res) => {
   const { name, price, category, gender, image, description, tagline, details, style_type, colors, quantity, additional_images } = req.body;
   const stmt = db.prepare('INSERT INTO products (name, price, category, gender, image, description, tagline, details, style_type, colors, quantity, additional_images) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
   stmt.run(name.trim(), parseFloat(price), category, gender, image, description, tagline, details, style_type, colors, parseInt(quantity) || 0, additional_images, function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+    if (err) { console.error('Product insert error:', err); return res.status(500).json({ error: 'Database error' }); }
     res.status(201).json({ id: this.lastID, message: 'Product added successfully' });
   });
   stmt.finalize();
 });
 
-app.put('/api/products/:id', verifyToken, (req, res) => {
-  const errs = validateProduct(req.body);
-  if (errs.length > 0) return res.status(400).json({ error: errs.join('; ') });
+app.put('/api/products/:id', verifyToken, validateIntParam('id'), validateBody(productSchema), checkProductBody, (req, res) => {
   const { name, price, category, gender, image, description, tagline, details, style_type, colors, quantity, additional_images } = req.body;
   const stmt = db.prepare('UPDATE products SET name=?, price=?, category=?, gender=?, image=?, description=?, tagline=?, details=?, style_type=?, colors=?, quantity=?, additional_images=? WHERE id=?');
   stmt.run(name.trim(), parseFloat(price), category, gender, image, description, tagline, details, style_type, colors, parseInt(quantity) || 0, additional_images, req.params.id, function(err) {
-    if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+    if (err) { console.error('Product update error:', err); return res.status(500).json({ error: 'Database error' }); }
     res.json({ message: 'Product updated successfully' });
   });
   stmt.finalize();
 });
 
-app.delete('/api/products/:id', verifyToken, (req, res) => {
+app.delete('/api/products/:id', verifyToken, validateIntParam('id'), (req, res) => {
   db.run('DELETE FROM products WHERE id = ?', [req.params.id], function(err) {
     if (err) return res.status(500).json({ error: 'Database error' });
     res.json({ message: 'Product deleted successfully' });
@@ -343,19 +422,19 @@ app.delete('/api/products', verifyToken, (req, res) => {
 });
 
 // Orders
-app.get('/api/orders',        verifyToken, async (req, res) => { try { res.json(await orderStore.listOrders()); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/orders/:id', verifyToken, async (req, res) => { try { await orderStore.deleteOrder(req.params.id); res.json({ message: 'Order deleted' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/orders',     verifyToken, async (req, res) => { try { await orderStore.clearOrders(); res.json({ message: 'All orders cleared' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
+app.get('/api/orders',        verifyToken, async (req, res) => { try { res.json(await orderStore.listOrders()); } catch (e) { console.error('Orders list error:', e); res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/orders/:id', verifyToken, validateSafeIdParam('id'), async (req, res) => { try { await orderStore.deleteOrder(req.params.id); res.json({ message: 'Order deleted' }); } catch (e) { console.error('Order delete error:', e); res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/orders',     verifyToken, async (req, res) => { try { await orderStore.clearOrders(); res.json({ message: 'All orders cleared' }); } catch (e) { console.error('Orders clear error:', e); res.status(500).json({ error: 'Database error' }); } });
 
 // Payments
-app.get('/api/payments',        verifyToken, async (req, res) => { try { res.json(await orderStore.listPayments()); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/payments/:id', verifyToken, async (req, res) => { try { await orderStore.deletePayment(req.params.id); res.json({ message: 'Payment deleted' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/payments',     verifyToken, async (req, res) => { try { await orderStore.clearPayments(); res.json({ message: 'All payments cleared' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
+app.get('/api/payments',        verifyToken, async (req, res) => { try { res.json(await orderStore.listPayments()); } catch (e) { console.error('Payments list error:', e); res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/payments/:id', verifyToken, validateSafeIdParam('id'), async (req, res) => { try { await orderStore.deletePayment(req.params.id); res.json({ message: 'Payment deleted' }); } catch (e) { console.error('Payment delete error:', e); res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/payments',     verifyToken, async (req, res) => { try { await orderStore.clearPayments(); res.json({ message: 'All payments cleared' }); } catch (e) { console.error('Payments clear error:', e); res.status(500).json({ error: 'Database error' }); } });
 
 // Customers
-app.get('/api/customers',        verifyToken, async (req, res) => { try { res.json(await orderStore.listCustomers()); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/customers/:id', verifyToken, async (req, res) => { try { await orderStore.deleteCustomer(req.params.id); res.json({ message: 'Customer deleted' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
-app.delete('/api/customers',     verifyToken, async (req, res) => { try { await orderStore.clearCustomers(); res.json({ message: 'All customers cleared' }); } catch (e) { res.status(500).json({ error: 'Database error' }); } });
+app.get('/api/customers',        verifyToken, async (req, res) => { try { res.json(await orderStore.listCustomers()); } catch (e) { console.error('Customers list error:', e); res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/customers/:id', verifyToken, validateSafeIdParam('id'), async (req, res) => { try { await orderStore.deleteCustomer(req.params.id); res.json({ message: 'Customer deleted' }); } catch (e) { console.error('Customer delete error:', e); res.status(500).json({ error: 'Database error' }); } });
+app.delete('/api/customers',     verifyToken, async (req, res) => { try { await orderStore.clearCustomers(); res.json({ message: 'All customers cleared' }); } catch (e) { console.error('Customers clear error:', e); res.status(500).json({ error: 'Database error' }); } });
 
 // Customer's own orders
 app.get('/api/customer/orders', (req, res) => {
@@ -364,7 +443,7 @@ app.get('/api/customer/orders', (req, res) => {
   jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
     if (err) return res.status(401).json({ error: 'Unauthorized' });
     try { res.json(await orderStore.listCustomerOrders(decoded.email, decoded.phone)); }
-    catch (storeErr) { res.status(500).json({ error: 'Database error' }); }
+    catch (storeErr) { console.error('Customer orders error:', storeErr); res.status(500).json({ error: 'Database error' }); }
   });
 });
 
@@ -381,6 +460,9 @@ app.get('/sitemap.xml', (req, res) => {
   });
 });
 
+// Unknown API routes get a JSON 404, never the SPA shell.
+app.use('/api', (req, res) => res.status(404).json({ error: 'Not found' }));
+
 // Static frontend
 const distPath = join(__dirname, '../dist');
 app.use(express.static(distPath, {
@@ -389,6 +471,25 @@ app.use(express.static(distPath, {
   },
 }));
 app.get('/{*splat}', (req, res) => res.sendFile(join(distPath, 'index.html')));
+
+// ── Global error handler ──────────────────────────────────────────────────────
+// Last line of defense: full details are logged server-side; clients only ever
+// see a generic message — no stack traces, paths or driver errors.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  if (res.headersSent) return;
+  if (err.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body too large' });
+  }
+  if (err.message === 'CORS policy violation') {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+  console.error(`Unhandled error on ${req.method} ${req.originalUrl}:`, err);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 if (!process.env.VERCEL) {
   app.listen(PORT, '0.0.0.0', () => console.log(`Backend running on http://0.0.0.0:${PORT}`));

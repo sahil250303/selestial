@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import twilio from 'twilio';
 import { db } from './db.js';
+import { rejectIfThrottled, recordAuthFailure, clearAuthFailures } from './authThrottle.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -14,23 +15,32 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // OTP codes are never stored in clear text — only a SHA-256 hash is persisted.
 const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
 
-export const loginAdmin = (req, res) => {
+export const loginAdmin = async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  // Per-account exponential backoff (on top of the per-IP limiter) — an
+  // attacker rotating IPs is still slowed down per target account.
+  if (await rejectIfThrottled(res, 'admin', username)) return;
   db.get('SELECT * FROM admin_users WHERE username = ?', [username], (err, user) => {
     if (err) return res.status(500).json({ error: 'Database error' });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user || !bcrypt.compareSync(password, user.password)) {
+      recordAuthFailure('admin', username);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    clearAuthFailures('admin', username);
     const token = jwt.sign({ id: user.id, username: user.username, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, message: 'Login successful' });
   });
 };
 
+// Admin-only guard. SECURITY: verifying the signature is NOT enough — customer
+// tokens are signed with the same secret, so the role claim must be enforced
+// or any signed-in customer could call admin endpoints.
 export const verifyToken = (req, res, next) => {
   const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
   if (!token) return res.status(403).json({ error: 'No token provided' });
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(401).json({ error: 'Unauthorized' });
+    if (err || decoded.role !== 'admin') return res.status(401).json({ error: 'Unauthorized' });
     req.userId = decoded.id;
     next();
   });
@@ -57,26 +67,30 @@ export const signupCustomer = (req, res) => {
   });
 };
 
-export const loginCustomer = (req, res) => {
+export const loginCustomer = async (req, res) => {
   // SECURITY: the password route ALWAYS verifies a password. It must never trust
   // a client-supplied `auth_provider` to skip verification — Google and OTP have
   // their own server-verified routes (`/customer/google`, `/customer/verify-otp`).
   const { email, phone, password } = req.body;
   const param = email || phone;
   if (!param) return res.status(400).json({ error: 'Email or Phone is required' });
+  if (await rejectIfThrottled(res, 'customer', param)) return;
   const query = email ? 'SELECT * FROM customers WHERE email = ?' : 'SELECT * FROM customers WHERE phone = ?';
   db.get(query, [param], (err, user) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     // Generic message — do not reveal whether the account exists.
-    if (!user || !user.password) return res.status(401).json({ error: 'Invalid credentials' });
-    if (!password || !bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user || !user.password || !password || !bcrypt.compareSync(password, user.password)) {
+      recordAuthFailure('customer', param);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    clearAuthFailures('customer', param);
     const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
   });
 };
 
 export const loginWithGoogle = async (req, res) => {
-  const { credential, googleUser } = req.body;
+  const { credential } = req.body;
   if (!credential) return res.status(400).json({ error: 'Google access token is required' });
   try {
     const gRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -84,8 +98,10 @@ export const loginWithGoogle = async (req, res) => {
     });
     if (!gRes.ok) return res.status(401).json({ error: 'Invalid or expired Google token' });
     const profile = await gRes.json();
-    const email = profile.email || googleUser?.email;
-    const name = profile.name || googleUser?.name || 'Selestial Member';
+    // SECURITY: only trust Google's own userinfo response. Never fall back to a
+    // client-supplied email — that would let anyone claim an arbitrary account.
+    const email = profile.email;
+    const name = profile.name || 'Selestial Member';
     if (!email) return res.status(400).json({ error: 'Could not retrieve email from Google' });
     const date = new Date().toISOString().split('T')[0];
     db.get('SELECT * FROM customers WHERE email = ?', [email], (err, user) => {
@@ -112,9 +128,12 @@ const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_T
   ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
   : null;
 
-export const sendOtp = (req, res) => {
+export const sendOtp = async (req, res) => {
   const { phone } = req.body;
   if (!phone) return res.status(400).json({ error: 'Phone is required' });
+  // Per-phone backoff: prevents SMS-bombing a victim's number from many IPs.
+  if (await rejectIfThrottled(res, 'otp-send', phone)) return;
+  recordAuthFailure('otp-send', phone);
   const otp = crypto.randomInt(100000, 1000000).toString(); // cryptographically secure
   const expiresAt = Date.now() + 10 * 60 * 1000;
   db.run('INSERT OR REPLACE INTO otp_sessions (phone, otp, expires_at) VALUES (?, ?, ?)', [phone, hashOtp(otp), expiresAt], async (err) => {
@@ -129,7 +148,7 @@ export const sendOtp = (req, res) => {
         res.json({ message: 'OTP sent successfully to your mobile' });
       } catch (smsErr) {
         console.error('Twilio error:', smsErr);
-        res.status(500).json({ error: 'Failed to send OTP SMS. Check Twilio configuration.' });
+        res.status(500).json({ error: 'Failed to send OTP SMS. Please try again later.' });
       }
     } else {
       console.log(`[Dev OTP] Code for ${phone}: ${otp}`);
@@ -138,14 +157,20 @@ export const sendOtp = (req, res) => {
   });
 };
 
-export const verifyOtp = (req, res) => {
+export const verifyOtp = async (req, res) => {
   const { phone, otp, name } = req.body;
   if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP are required' });
+  // Per-phone backoff — 6-digit codes must not be brute-forceable from many IPs.
+  if (await rejectIfThrottled(res, 'otp-verify', phone)) return;
   db.get('SELECT * FROM otp_sessions WHERE phone = ?', [phone], (err, session) => {
     if (err) return res.status(500).json({ error: 'Database error verifying OTP' });
     if (!session) return res.status(400).json({ error: 'No active OTP session found' });
     if (Date.now() > session.expires_at) return res.status(400).json({ error: 'OTP has expired. Please request a new one.' });
-    if (session.otp !== hashOtp(otp)) return res.status(401).json({ error: 'Invalid OTP' });
+    if (session.otp !== hashOtp(otp)) {
+      recordAuthFailure('otp-verify', phone);
+      return res.status(401).json({ error: 'Invalid OTP' });
+    }
+    clearAuthFailures('otp-verify', phone);
     db.run('DELETE FROM otp_sessions WHERE phone = ?', [phone]);
     db.get('SELECT * FROM customers WHERE phone = ?', [phone], (err2, user) => {
       if (err2) return res.status(500).json({ error: 'Database error looking up user' });

@@ -23,12 +23,17 @@ function nearestSupportedWidth(width) {
   return SUPPORTED_WIDTHS.find(supportedWidth => width <= supportedWidth) || SUPPORTED_WIDTHS.at(-1);
 }
 
+// Only raster image formats may be stored or served. SVG is deliberately
+// excluded — it can embed scripts and would execute in the browser.
+export const ALLOWED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
+export const ALLOWED_IMAGE_MIMETYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+
 function contentTypeForFilename(filename) {
   const extension = extname(filename).toLowerCase();
   if (extension === '.webp') return 'image/webp';
   if (extension === '.png') return 'image/png';
   if (extension === '.gif') return 'image/gif';
-  if (extension === '.svg') return 'image/svg+xml';
+  if (extension === '.avif') return 'image/avif';
   return 'image/jpeg';
 }
 
@@ -36,9 +41,11 @@ export function isSafeUploadFilename(filename) {
   return (
     typeof filename === 'string' &&
     filename.length > 0 &&
+    filename.length <= 200 &&
     basename(filename) === filename &&
     !filename.includes('..') &&
-    /^[A-Za-z0-9._-]+$/.test(filename)
+    /^[A-Za-z0-9._-]+$/.test(filename) &&
+    ALLOWED_IMAGE_EXTENSIONS.includes(extname(filename).toLowerCase())
   );
 }
 

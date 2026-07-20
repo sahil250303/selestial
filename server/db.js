@@ -148,6 +148,11 @@ export async function initDb() {
     rating INTEGER CHECK(rating >= 1 AND rating <= 5), comment TEXT, date TEXT
   )`);
 
+  // Per-account auth backoff counters (see authThrottle.js).
+  await db.run(`CREATE TABLE IF NOT EXISTS auth_throttle (
+    key TEXT PRIMARY KEY, failures INTEGER DEFAULT 0, last_failure_at INTEGER
+  )`);
+
   // Lightweight, idempotent column migrations for pre-existing databases.
   await ensureColumns('products', {
     quantity: 'INTEGER DEFAULT 0', tagline: 'TEXT', details: 'TEXT',

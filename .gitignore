@@ -30,3 +30,9 @@ server/uploads/cache/
 .env
 .env.*
 .env*.local
+
+# Local databases — real customer data must never be committed
+server/database.sqlite
+*.sqlite
+*.sqlite3
+*.db
