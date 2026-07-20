@@ -46,6 +46,18 @@ export const verifyToken = (req, res, next) => {
   });
 };
 
+// Customer guard: any valid customer token (id claim, no admin role). Attaches
+// the decoded claims as req.customer for downstream handlers.
+export const verifyCustomer = (req, res, next) => {
+  const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(403).json({ error: 'No token provided' });
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err || !decoded.id || decoded.role === 'admin') return res.status(401).json({ error: 'Unauthorized' });
+    req.customer = decoded;
+    next();
+  });
+};
+
 export const signupCustomer = (req, res) => {
   const { name, email, phone, password, auth_provider } = req.body;
   const date = new Date().toISOString().split('T')[0];

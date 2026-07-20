@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { getCustomerSession, getCustomerToken } from '../utils/auth';
+import { getCustomerSession, getCustomerToken, clearCustomerSession } from '../utils/auth';
 
 const WishlistContext = createContext();
 
@@ -35,7 +35,13 @@ export const WishlistProvider = ({ children }) => {
     fetch('/api/customer/wishlist', {
       headers: { Authorization: `Bearer ${session.token}` },
     })
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (r.ok) return r.json();
+        // Expired/invalid token: self-heal to logged-out instead of retrying a
+        // dead session forever. The local wishlist keeps working either way.
+        if (r.status === 401) clearCustomerSession();
+        return [];
+      })
       .then((dbItems) => {
         if (!Array.isArray(dbItems)) return;
         setWishlist((prev) => {

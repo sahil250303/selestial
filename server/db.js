@@ -153,6 +153,16 @@ export async function initDb() {
     key TEXT PRIMARY KEY, failures INTEGER DEFAULT 0, last_failure_at INTEGER
   )`);
 
+  // Customer wishlists — schema matches the legacy table so pre-existing
+  // databases keep working unchanged.
+  await db.run(`CREATE TABLE IF NOT EXISTS wishlists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    added_at TEXT,
+    UNIQUE(customer_id, product_id)
+  )`);
+
   // Lightweight, idempotent column migrations for pre-existing databases.
   await ensureColumns('products', {
     quantity: 'INTEGER DEFAULT 0', tagline: 'TEXT', details: 'TEXT',

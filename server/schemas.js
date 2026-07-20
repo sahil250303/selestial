@@ -94,6 +94,17 @@ export const checkoutSchema = {
   paymentMethodId: { type: 'string', maxLength: 255, pattern: /^pm_[A-Za-z0-9_]+$/, patternHint: 'is not a valid payment method id' },
 };
 
+export const wishlistAddSchema = {
+  productId: { type: 'numeric', required: true, integer: true, min: 1, max: 1e9 },
+};
+
+// PATCH semantics: omitted field = unchanged, empty string = clear the value.
+// (The 'phone' format check only applies to non-empty values.)
+export const profileUpdateSchema = {
+  phone: { type: 'phone', maxLength: 20 },
+  address: { type: 'string', maxLength: 500 },
+};
+
 export const productSchema = {
   id: { type: 'numeric', integer: true, min: 0 }, // sent by the admin UI on edit; route param wins
   name: { type: 'string', required: true, minLength: 2, maxLength: 200 },

@@ -52,7 +52,7 @@ try {
   await ready();
 
   await check('unknown API route returns JSON 404', async () => {
-    const r = await fetch(`${base}/api/customer/wishlist`);
+    const r = await fetch(`${base}/api/no-such-endpoint`);
     assert(r.status === 404, `status ${r.status}`);
     assert((r.headers.get('content-type') || '').includes('json'), 'not json');
   });
@@ -111,8 +111,104 @@ try {
     const s = await post('/api/auth/customer/signup', { name: 'Eve', email: 'eve@smoke.test', password: 'longenough-pw-123' });
     assert(s.status === 201, `signup status ${s.status}`);
     const { token } = await s.json();
+    globalThis.customerToken = token;
     const r = await fetch(`${base}/api/customers`, { headers: { Authorization: `Bearer ${token}` } });
     assert(r.status === 401, `expected 401, got ${r.status}`);
+  });
+
+  // ── Wishlist API ─────────────────────────────────────────────────────────────
+  const asCustomer = () => ({ Authorization: `Bearer ${globalThis.customerToken}` });
+
+  await check('wishlist requires auth (403 without token)', async () => {
+    const r = await fetch(`${base}/api/customer/wishlist`);
+    assert(r.status === 403, `status ${r.status}`);
+  });
+
+  await check('admin token rejected on customer wishlist (401)', async () => {
+    const r = await fetch(`${base}/api/customer/wishlist`, { headers: { Authorization: `Bearer ${globalThis.adminToken}` } });
+    assert(r.status === 401, `status ${r.status}`);
+  });
+
+  await check('empty wishlist returns []', async () => {
+    const r = await fetch(`${base}/api/customer/wishlist`, { headers: asCustomer() });
+    assert(r.status === 200, `status ${r.status}`);
+    const j = await r.json();
+    assert(Array.isArray(j) && j.length === 0, `expected [], got ${JSON.stringify(j)}`);
+  });
+
+  await check('wishlist add succeeds (201) and is idempotent', async () => {
+    const r1 = await post('/api/customer/wishlist', { productId: 1 }, asCustomer());
+    assert(r1.status === 201, `first add status ${r1.status}`);
+    const r2 = await post('/api/customer/wishlist', { productId: 1 }, asCustomer());
+    assert(r2.status === 201, `repeat add status ${r2.status}`);
+  });
+
+  await check('wishlist returns full product rows for rendering', async () => {
+    const r = await fetch(`${base}/api/customer/wishlist`, { headers: asCustomer() });
+    const j = await r.json();
+    assert(j.length === 1, `expected 1 item, got ${j.length}`);
+    assert(j[0].id === 1 && j[0].name && j[0].price > 0 && j[0].image, `row incomplete: ${JSON.stringify(j[0])}`);
+  });
+
+  await check('wishlist add rejects unknown product (404)', async () => {
+    const r = await post('/api/customer/wishlist', { productId: 999999 }, asCustomer());
+    assert(r.status === 404, `status ${r.status}`);
+  });
+
+  await check('wishlist add rejects non-numeric productId (400)', async () => {
+    const r = await post('/api/customer/wishlist', { productId: 'abc' }, asCustomer());
+    assert(r.status === 400, `status ${r.status}`);
+  });
+
+  await check('wishlist delete removes the item', async () => {
+    const d = await fetch(`${base}/api/customer/wishlist/1`, { method: 'DELETE', headers: asCustomer() });
+    assert(d.status === 200, `delete status ${d.status}`);
+    const r = await fetch(`${base}/api/customer/wishlist`, { headers: asCustomer() });
+    const j = await r.json();
+    assert(j.length === 0, `expected [] after delete, got ${JSON.stringify(j)}`);
+  });
+
+  // ── Profile API ──────────────────────────────────────────────────────────────
+  const patch = (path, body, headers = {}) => fetch(base + path, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body),
+  });
+
+  await check('profile update requires auth (403 without token)', async () => {
+    const r = await patch('/api/customer/profile', { phone: '+1 555 000 1111' });
+    assert(r.status === 403, `status ${r.status}`);
+  });
+
+  await check('profile update succeeds and returns the updated user', async () => {
+    const r = await patch('/api/customer/profile', { phone: '+1 555 000 1111', address: '42 Silver Street, Springfield' }, asCustomer());
+    const bodyText = await r.text();
+    assert(r.status === 200, `status ${r.status}: ${bodyText}`);
+    const { user } = JSON.parse(bodyText);
+    assert(user.phone === '+1 555 000 1111', `phone not saved: ${JSON.stringify(user)}`);
+    assert(user.address === '42 Silver Street, Springfield', `address not saved`);
+  });
+
+  await check('profile update rejects malformed phone (400)', async () => {
+    const r = await patch('/api/customer/profile', { phone: 'not-a-phone!!' }, asCustomer());
+    assert(r.status === 400, `status ${r.status}`);
+  });
+
+  await check('profile update rejects unknown fields (400)', async () => {
+    const r = await patch('/api/customer/profile', { phone: '+1 555 000 1111', role: 'admin' }, asCustomer());
+    assert(r.status === 400, `status ${r.status}`);
+  });
+
+  await check('profile phone uniqueness enforced (409)', async () => {
+    const s = await post('/api/auth/customer/signup', { name: 'Mallory', email: 'mallory@smoke.test', password: 'longenough-pw-456' });
+    const { token } = await s.json();
+    const r = await patch('/api/customer/profile', { phone: '+1 555 000 1111' }, { Authorization: `Bearer ${token}` });
+    assert(r.status === 409, `status ${r.status}`);
+  });
+
+  await check('profile empty string clears the address', async () => {
+    const r = await patch('/api/customer/profile', { address: '' }, asCustomer());
+    assert(r.status === 200, `status ${r.status}`);
+    const { user } = await r.json();
+    assert(!user.address, `address not cleared: ${JSON.stringify(user)}`);
   });
 
   await check('admin token CAN access admin routes', async () => {

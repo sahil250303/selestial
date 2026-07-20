@@ -12,7 +12,7 @@ dotenv.config();
 import { fileURLToPath } from 'url';
 import { dirname, join, extname } from 'path';
 import { initDb, db } from './db.js';
-import { loginAdmin, verifyToken, loginCustomer, signupCustomer, sendOtp, verifyOtp, loginWithGoogle } from './auth.js';
+import { loginAdmin, verifyToken, verifyCustomer, loginCustomer, signupCustomer, sendOtp, verifyOtp, loginWithGoogle } from './auth.js';
 import { createOrderStore } from './orderStore.js';
 import { sendOrderEmails } from './email.js';
 import { optimizeUploadedImage, sendUploadImage, ALLOWED_IMAGE_EXTENSIONS, ALLOWED_IMAGE_MIMETYPES } from './imageOptimizer.js';
@@ -21,7 +21,7 @@ import { validateBody, validateIntParam, validateSafeIdParam } from './validate.
 import {
   adminLoginSchema, customerSignupSchema, customerLoginSchema, googleLoginSchema,
   sendOtpSchema, verifyOtpSchema, reviewSchema, newsletterSchema, checkoutSchema,
-  productSchema, validateAdditionalImages,
+  productSchema, validateAdditionalImages, wishlistAddSchema, profileUpdateSchema,
 } from './schemas.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -436,15 +436,88 @@ app.get('/api/customers',        verifyToken, async (req, res) => { try { res.js
 app.delete('/api/customers/:id', verifyToken, validateSafeIdParam('id'), async (req, res) => { try { await orderStore.deleteCustomer(req.params.id); res.json({ message: 'Customer deleted' }); } catch (e) { console.error('Customer delete error:', e); res.status(500).json({ error: 'Database error' }); } });
 app.delete('/api/customers',     verifyToken, async (req, res) => { try { await orderStore.clearCustomers(); res.json({ message: 'All customers cleared' }); } catch (e) { console.error('Customers clear error:', e); res.status(500).json({ error: 'Database error' }); } });
 
+// ── Customer routes (verifyCustomer: any signed-in customer) ─────────────────
+
 // Customer's own orders
-app.get('/api/customer/orders', (req, res) => {
-  const token = req.cookies?.authToken || req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(403).json({ error: 'No token provided' });
-  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
-    if (err) return res.status(401).json({ error: 'Unauthorized' });
-    try { res.json(await orderStore.listCustomerOrders(decoded.email, decoded.phone)); }
-    catch (storeErr) { console.error('Customer orders error:', storeErr); res.status(500).json({ error: 'Database error' }); }
-  });
+app.get('/api/customer/orders', verifyCustomer, async (req, res) => {
+  try { res.json(await orderStore.listCustomerOrders(req.customer.email, req.customer.phone)); }
+  catch (storeErr) { console.error('Customer orders error:', storeErr); res.status(500).json({ error: 'Database error' }); }
+});
+
+// Wishlist — returns full product rows so the UI can render name/price/image
+// directly; products deleted from the catalog drop out via the INNER JOIN.
+app.get('/api/customer/wishlist', verifyCustomer, async (req, res) => {
+  try {
+    const rows = await db.all(
+      `SELECT p.* FROM wishlists w JOIN products p ON p.id = w.product_id
+       WHERE w.customer_id = ? ORDER BY w.id DESC`,
+      [req.customer.id]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error('Wishlist list error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/customer/wishlist', verifyCustomer, validateBody(wishlistAddSchema), async (req, res) => {
+  try {
+    const productId = parseInt(req.body.productId);
+    const product = await db.get('SELECT id FROM products WHERE id = ?', [productId]);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    // Idempotent: re-adding an existing favourite is a no-op, not an error.
+    await db.run(
+      'INSERT OR IGNORE INTO wishlists (customer_id, product_id, added_at) VALUES (?, ?, ?)',
+      [req.customer.id, productId, new Date().toISOString()]
+    );
+    res.status(201).json({ message: 'Added to wishlist' });
+  } catch (err) {
+    console.error('Wishlist add error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.delete('/api/customer/wishlist/:productId', verifyCustomer, validateIntParam('productId'), async (req, res) => {
+  try {
+    await db.run('DELETE FROM wishlists WHERE customer_id = ? AND product_id = ?', [req.customer.id, req.params.productId]);
+    res.json({ message: 'Removed from wishlist' });
+  } catch (err) {
+    console.error('Wishlist remove error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Profile update — PATCH semantics: omitted = unchanged, '' = clear.
+app.patch('/api/customer/profile', verifyCustomer, validateBody(profileUpdateSchema), async (req, res) => {
+  try {
+    const { phone, address } = req.body;
+    if (phone === undefined && address === undefined) {
+      return res.status(400).json({ error: 'Nothing to update' });
+    }
+
+    const newPhone = phone === undefined ? undefined : (phone.trim() === '' ? null : phone.trim());
+    const newAddress = address === undefined ? undefined : (address.trim() === '' ? null : address.trim());
+
+    // A phone number identifies an account for OTP login — it must stay unique.
+    if (newPhone) {
+      const clash = await db.get('SELECT id FROM customers WHERE phone = ? AND id != ?', [newPhone, req.customer.id]);
+      if (clash) return res.status(409).json({ error: 'This phone number is already linked to another account' });
+    }
+
+    const sets = [];
+    const params = [];
+    if (newPhone !== undefined) { sets.push('phone = ?'); params.push(newPhone); }
+    if (newAddress !== undefined) { sets.push('address = ?'); params.push(newAddress); }
+    params.push(req.customer.id);
+    const result = await db.run(`UPDATE customers SET ${sets.join(', ')} WHERE id = ?`, params);
+    if (!result || result.changes === 0) return res.status(404).json({ error: 'Account not found' });
+
+    const user = await db.get('SELECT name, email, phone, address FROM customers WHERE id = ?', [req.customer.id]);
+    res.json({ message: 'Profile updated', user });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Dynamic sitemap
