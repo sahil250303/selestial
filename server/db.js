@@ -205,6 +205,31 @@ async function seedProducts() {
   const row = await db.get('SELECT COUNT(*) AS count FROM products');
   const count = row ? Number(row.count) : 0;
   if (count > 0) return;
+
+  // Catalog seed: productSeed.json holds the real (public, PII-free) product
+  // catalog and ships with the deployment. Without a durable database
+  // (TURSO_DATABASE_URL) the serverless /tmp store is wiped on every cold
+  // start, so this file is what keeps the storefront populated. Ids are
+  // preserved so product URLs and wishlist rows stay valid across reseeds.
+  const seedPath = join(__dirname, 'productSeed.json');
+  if (fs.existsSync(seedPath)) {
+    try {
+      const products = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+      for (const p of products) {
+        await db.run(
+          'INSERT INTO products (id, name, price, category, gender, image, description, tagline, details, style_type, colors, quantity, additional_images, featured) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [p.id, p.name, p.price, p.category ?? null, p.gender ?? null, p.image ?? null, p.description ?? null,
+           p.tagline ?? null, p.details ?? null, p.style_type ?? null, p.colors ?? null,
+           p.quantity ?? 0, p.additional_images ?? null, p.featured ?? 0]
+        );
+      }
+      console.log(`[db] Seeded ${products.length} products from productSeed.json.`);
+      return;
+    } catch (err) {
+      console.error('[db] Failed to seed from productSeed.json, falling back to demo seed:', err);
+    }
+  }
+
   const demo = [
     { name: 'Obsidian Core Ring', price: 145, category: 'rings', gender: 'men', image: '/obsidian_ring.png', description: 'Solid 925 sterling silver ring with obsidian inlay. Bold, geometric.', quantity: 10, featured: 1 },
     { name: 'Celestial Chain', price: 210, category: 'necklaces', gender: 'men', image: '/celestial_chain.png', description: 'Heavy link 925 sterling silver chain. Premium weight and finish.', quantity: 15, featured: 1 },

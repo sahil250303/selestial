@@ -249,22 +249,28 @@ try {
   });
 
   await check('valid checkout succeeds with server-side pricing', async () => {
+    const products = await (await fetch(`${base}/api/products`)).json();
+    const target = products.find((p) => p.quantity > 0);
+    assert(target, 'no in-stock product available to test checkout');
+    globalThis.checkoutProduct = target;
     const r = await post('/api/checkout', {
       firstName: 'Smoke', lastName: 'Test', email: 'smoke@test.dev', phone: '+1 555 010 2030',
       address: '1 Main Street, Springfield', paymentMethod: 'Credit Card',
-      cartItems: [{ id: 1, quantity: 1, cartItemId: '1-Free Size-Silver', stockLimit: 10, name: 'HACKED', price: 0.01 }],
+      cartItems: [{ id: target.id, quantity: 1, cartItemId: `${target.id}-Free Size-Silver`, stockLimit: target.quantity, name: 'HACKED', price: 0.01 }],
       totalAmount: 0.01,
     });
-    assert(r.status === 201, `status ${r.status}: ${await r.text()}`);
+    const bodyText = await r.text();
+    assert(r.status === 201, `status ${r.status}: ${bodyText}`);
   });
 
   await check('stored order used DB price, not client price', async () => {
+    const target = globalThis.checkoutProduct;
     const r = await fetch(`${base}/api/orders`, { headers: { Authorization: `Bearer ${globalThis.adminToken}` } });
     const orders = await r.json();
     const order = orders[0];
-    assert(order && order.total_amount === 145, `total ${order && order.total_amount}`);
+    assert(order && order.total_amount === target.price, `total ${order && order.total_amount}, expected ${target.price}`);
     const items = JSON.parse(order.items);
-    assert(items[0].name !== 'HACKED' && items[0].price === 145, `item not rebuilt: ${order.items}`);
+    assert(items[0].name !== 'HACKED' && items[0].price === target.price, `item not rebuilt: ${order.items}`);
   });
 
   console.log(failures === 0 ? '\nALL SMOKE CHECKS PASSED' : `\n${failures} CHECK(S) FAILED`);
