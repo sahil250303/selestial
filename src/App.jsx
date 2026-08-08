@@ -40,6 +40,7 @@ function useIdleAfterLoad() {
 }
 import ServiceSection from './components/ServiceSection';
 import ErrorBoundary from './components/ErrorBoundary';
+import ScrollToTop from './components/ScrollToTop';
 import { WishlistProvider } from './context/WishlistContext';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
@@ -151,6 +152,7 @@ function App() {
     <CartProvider>
       <WishlistProvider>
         <Router>
+          <ScrollToTop />
           <div className="relative min-h-screen">
             <CanvasBackground />
             <div id="main-content" className="relative z-10 font-sans text-silver-light pb-20">
