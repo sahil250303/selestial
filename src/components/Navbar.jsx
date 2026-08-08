@@ -345,7 +345,7 @@ export default function Navbar() {
                   <span className="hidden lg:inline">{customerName.split(' ')[0]}</span>
                 </button>
               ) : (
-                <Link to="/auth" className={hoverColor + ' transition'}>
+                <Link to="/auth" aria-label="Sign in" className={hoverColor + ' transition'}>
                   <User size={20} strokeWidth={1.5} />
                 </Link>
               )}
@@ -358,19 +358,29 @@ export default function Navbar() {
               )}
             </div>
 
-            <Link to="/wishlist" className={'relative hidden sm:block ' + hoverColor + ' transition'}>
+            {/* Icon-only links need an explicit name — the count badge is marked
+                aria-hidden so it is not announced twice after the label. */}
+            <Link
+              to="/wishlist"
+              aria-label={wishlistCount > 0 ? `Wishlist, ${wishlistCount} item${wishlistCount === 1 ? '' : 's'}` : 'Wishlist'}
+              className={'relative hidden sm:block ' + hoverColor + ' transition'}
+            >
               <Heart size={20} strokeWidth={1.5} />
               {wishlistCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-silver-light text-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                <span aria-hidden="true" className="absolute -top-2 -right-2 bg-silver-light text-black text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                   {wishlistCount}
                 </span>
               )}
             </Link>
 
-            <Link to="/cart" className={'relative hidden md:block ' + hoverColor + ' transition'}>
+            <Link
+              to="/cart"
+              aria-label={cartCount > 0 ? `Cart, ${cartCount} item${cartCount === 1 ? '' : 's'}` : 'Cart'}
+              className={'relative hidden md:block ' + hoverColor + ' transition'}
+            >
               <ShoppingBag size={20} strokeWidth={1.5} />
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                <span aria-hidden="true" className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
                   {cartCount}
                 </span>
               )}
