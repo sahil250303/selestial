@@ -11,6 +11,19 @@
        this shell guarantees a single, correct <title> with no duplicates. -->
   <meta name="theme-color" content="#000000" />
 
+  <!-- Critical styles for the static hero below. Inline so the first paint needs
+       no stylesheet round trip. Kept deliberately tiny — everything else still
+       comes from the built stylesheet. -->
+  <style>
+    html, body { margin: 0; background: #000; }
+    #lcp-hero {
+      position: absolute; top: 0; left: 0; width: 100%; height: 65vh;
+      overflow: hidden; background: #000; z-index: 0;
+    }
+    #lcp-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    @media (min-width: 768px) { #lcp-hero { height: 80vh; } }
+  </style>
+
   <!-- Google Fonts, loaded without blocking the first paint.
        Marked `media="print"` so it is fetched at low priority and does not block
        render; main.jsx promotes it to `media="all"` on boot, and the <noscript>
@@ -71,6 +84,27 @@
 </head>
 
 <body>
+  <!-- Static first paint of the hero image.
+       This app is client-rendered, so without this nothing can appear until
+       ~95KB of compressed JS downloads and boots — Lighthouse measured the hero
+       image fully downloaded at ~1s but held back by 2.7s of pure "render
+       delay", which is what capped the mobile score.
+       This element paints straight from HTML, so it becomes the Largest
+       Contentful Paint candidate immediately.
+       It MUST live outside #root and must never be removed: React replacing it
+       would retire this LCP candidate and push the metric back out to whenever
+       React rendered. Once the app mounts, its own hero (and the opaque
+       CanvasBackground) simply paint over this layer, so it is never visible at
+       the same time as the real hero and no duplicate download occurs — the
+       <img> below, the preload above, and StaticImage.jsx all request the exact
+       same URLs.
+       Keep the srcset in sync with src/components/StaticImage.jsx. -->
+  <div id="lcp-hero" aria-hidden="true">
+    <img src="/img/hero_1-768.avif"
+         srcset="/img/hero_1-480.avif 480w, /img/hero_1-768.avif 768w"
+         sizes="100vw" alt="" width="1024" height="1024"
+         fetchpriority="high" decoding="sync" />
+  </div>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
