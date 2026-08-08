@@ -8,6 +8,36 @@ import RequireAuth from './pages/admin/RequireAuth';
 // Lazy: FloatingCart pulls in GSAP (~68KB), which nothing on the initial paint
 // needs. Loading it on demand keeps the animation library off the critical path.
 const FloatingCart = lazy(() => import('./components/FloatingCart'));
+
+/**
+ * True once the page has loaded and the main thread is idle.
+ *
+ * React.lazy alone was not enough for GSAP: the chunk is requested as soon as
+ * the component renders, so it still landed inside the initial burst of work and
+ * cost ~83ms of the mobile Total Blocking Time. Gating the render on idle keeps
+ * the fetch and parse out of that window entirely. The floating cart is a
+ * persistent affordance rather than page content, so appearing a beat late is
+ * not noticeable.
+ */
+function useIdleAfterLoad() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let idleHandle;
+    const schedule = () => {
+      idleHandle = window.requestIdleCallback
+        ? window.requestIdleCallback(() => setReady(true), { timeout: 3000 })
+        : setTimeout(() => setReady(true), 1200);
+    };
+    if (document.readyState === 'complete') schedule();
+    else window.addEventListener('load', schedule, { once: true });
+    return () => {
+      window.removeEventListener('load', schedule);
+      if (idleHandle && window.cancelIdleCallback) window.cancelIdleCallback(idleHandle);
+      else clearTimeout(idleHandle);
+    };
+  }, []);
+  return ready;
+}
 import ServiceSection from './components/ServiceSection';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WishlistProvider } from './context/WishlistContext';
@@ -114,6 +144,7 @@ export const CartProvider = ({ children }) => {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
+  const showFloatingCart = useIdleAfterLoad();
   return (
     <ToastProvider>
     <CartProvider>
@@ -166,7 +197,7 @@ function App() {
               </ErrorBoundary>
               <ServiceSection />
               <Footer />
-              <Suspense fallback={null}><FloatingCart /></Suspense>
+              {showFloatingCart && <Suspense fallback={null}><FloatingCart /></Suspense>}
               <SpeedInsights />
               <Analytics />
             </div>
