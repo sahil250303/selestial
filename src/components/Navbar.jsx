@@ -48,7 +48,13 @@ export default function Navbar() {
   ];
   const [announcementIndex, setAnnouncementIndex] = useState(0);
 
+  // Skipped under prefers-reduced-motion — both as the polite default and to keep
+  // prerendering deterministic. The prerenderer emulates reduced motion, so the
+  // snapshot always captures index 0, which is what the client's first render
+  // produces too. Without that, the snapshot could catch a rotated index and the
+  // resulting hydration mismatch would make React rebuild the whole DOM.
   useEffect(() => {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const t = setInterval(() => setAnnouncementIndex(i => (i + 1) % announcements.length), 4000);
     return () => clearInterval(t);
   }, [announcements.length]);
