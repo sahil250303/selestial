@@ -145,6 +145,7 @@ export const CartProvider = ({ children }) => {
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
   const showFloatingCart = useIdleAfterLoad();
+  const deferAnalytics = showFloatingCart;
   return (
     <ToastProvider>
     <CartProvider>
@@ -198,8 +199,18 @@ function App() {
               <ServiceSection />
               <Footer />
               {showFloatingCart && <Suspense fallback={null}><FloatingCart /></Suspense>}
-              <SpeedInsights />
-              <Analytics />
+              {/* Deferred to idle for the same reason as FloatingCart: these two
+                  fetch and execute their own scripts, and on production (they do
+                  not load locally) that landed inside the measured window and was
+                  the largest remaining contributor to mobile Total Blocking Time.
+                  Both report Core Web Vitals through buffered PerformanceObservers,
+                  so metrics that occurred before they mount are still collected. */}
+              {deferAnalytics && (
+                <>
+                  <SpeedInsights />
+                  <Analytics />
+                </>
+              )}
             </div>
           </div>
         </Router>
