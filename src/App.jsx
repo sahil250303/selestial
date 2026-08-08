@@ -5,7 +5,9 @@ import Home from './pages/Home';
 import CanvasBackground from './components/CanvasBackground';
 import Footer from './components/Footer';
 import RequireAuth from './pages/admin/RequireAuth';
-import FloatingCart from './components/FloatingCart';
+// Lazy: FloatingCart pulls in GSAP (~68KB), which nothing on the initial paint
+// needs. Loading it on demand keeps the animation library off the critical path.
+const FloatingCart = lazy(() => import('./components/FloatingCart'));
 import ServiceSection from './components/ServiceSection';
 import ErrorBoundary from './components/ErrorBoundary';
 import { WishlistProvider } from './context/WishlistContext';
@@ -164,7 +166,7 @@ function App() {
               </ErrorBoundary>
               <ServiceSection />
               <Footer />
-              <FloatingCart />
+              <Suspense fallback={null}><FloatingCart /></Suspense>
               <SpeedInsights />
               <Analytics />
             </div>

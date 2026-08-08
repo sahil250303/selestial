@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Phone, Lock, User, ArrowRight, CheckCircle } from 'lucide-react';
-import { useGoogleLogin } from '@react-oauth/google';
+import { useGoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { setCustomerSession } from '../utils/auth';
-import { googleEnabled } from '../config/google.js';
+import { googleClientId, googleEnabled } from '../config/google.js';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -151,7 +151,7 @@ const Auth = () => {
         {/* Background image layer */}
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: 'url(/hero_2.png)' }}
+          style={{ backgroundImage: 'image-set(url(/img/hero_2-768.avif) type("image/avif"), url(/img/hero_2-768.webp) type("image/webp"))' }}
         />
         {/* Dark gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/10" />
@@ -358,4 +358,22 @@ const Auth = () => {
   );
 };
 
-export default Auth;
+// The provider lives here rather than at the app root so Google Identity
+// Services is only fetched when someone actually opens the sign-in page —
+// mounting it globally pulled ~70KB of third-party JS into every page load.
+//
+// <Auth> calls useGoogleLogin unconditionally (hooks cannot be conditional), so
+// a provider must always be above it. Google's script throws
+// "Missing required parameter client_id" on an empty id, which would surface as
+// a crashed sign-in page in any environment where VITE_GOOGLE_CLIENT_ID is
+// unset, so fall back to a well-formed placeholder. The button itself stays
+// hidden behind `googleEnabled`, so the placeholder is never actually used.
+const PLACEHOLDER_CLIENT_ID = 'unconfigured.apps.googleusercontent.com';
+
+export default function AuthRoute() {
+  return (
+    <GoogleOAuthProvider clientId={googleClientId || PLACEHOLDER_CLIENT_ID}>
+      <Auth />
+    </GoogleOAuthProvider>
+  );
+}

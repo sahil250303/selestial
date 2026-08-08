@@ -1,6 +1,7 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import StaticImage from '../components/StaticImage';
 
 export default function About() {
   return (
@@ -17,7 +18,7 @@ export default function About() {
 
       <div className="grid lg:grid-cols-2 gap-16 items-center mb-20">
         <div className="aspect-[4/3] bg-[#0a0a0a] border border-white/5 overflow-hidden rounded-sm">
-          <img src="/brand_story.png" alt="Selestial craftsmanship" className="w-full h-full object-cover" loading="lazy" />
+          <StaticImage base="brand_story" alt="Selestial craftsmanship" sizes="(min-width: 1024px) 50vw, 100vw" className="w-full h-full object-cover" />
         </div>
         <div>
           <span className="text-[10px] tracking-[0.4em] text-silver-dark uppercase mb-3 block font-medium">Origin</span>

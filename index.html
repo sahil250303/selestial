@@ -11,13 +11,29 @@
        this shell guarantees a single, correct <title> with no duplicates. -->
   <meta name="theme-color" content="#000000" />
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts, loaded without blocking the first paint.
+       Marked `media="print"` so it is fetched at low priority and does not block
+       render; main.jsx promotes it to `media="all"` on boot, and the <noscript>
+       copy keeps it working without JS. The promotion lives in the bundle rather
+       than an inline onload handler so it survives a future script-src CSP on
+       the HTML document. Combined with display=swap, text paints immediately in
+       the fallback face instead of waiting on fonts.googleapis.com. -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link data-defer-style
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet" media="print" />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap"
+      rel="stylesheet" />
+  </noscript>
 
-  <!-- Preload the LCP hero image -->
-  <link rel="preload" as="image" href="/hero_1.png" fetchpriority="high" />
+  <!-- Preload the LCP hero image. Must mirror the <picture> in StaticImage.jsx
+       (AVIF, 480/768w) or the browser preloads a file the page never uses. -->
+  <link rel="preload" as="image" type="image/avif"
+        imagesrcset="/img/hero_1-480.avif 480w, /img/hero_1-768.avif 768w"
+        imagesizes="100vw" fetchpriority="high" />
 
   <!-- Organization + WebSite JSON-LD structured data -->
   <script type="application/ld+json">

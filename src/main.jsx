@@ -1,10 +1,15 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HelmetProvider } from 'react-helmet-async';
-import { GoogleOAuthProvider } from '@react-oauth/google';
 import './index.css';
 import App from './App.jsx';
-import { googleClientId, googleEnabled } from './config/google.js';
+import { googleEnabled } from './config/google.js';
+
+// Promote the deferred font stylesheet (index.html ships it as media="print" so
+// it never blocks the first paint) to apply to all media now that we are past it.
+for (const link of document.querySelectorAll('link[data-defer-style]')) {
+  link.media = 'all';
+}
 
 // Root cause of the "Continue with Google" failure: VITE_GOOGLE_CLIENT_ID was
 // absent from every .env file, so the build baked in an EMPTY client ID. With an
@@ -18,15 +23,15 @@ if (!googleEnabled && import.meta.env.DEV) {
   );
 }
 
-// GoogleOAuthProvider must always wrap the tree so the useGoogleLogin hook stays
-// valid (hooks cannot be conditional). When unconfigured we pass the empty ID
-// but the button itself is hidden via `googleEnabled`.
+// GoogleOAuthProvider deliberately does NOT live here. Mounting it at the root
+// injects Google Identity Services (~70KB of JS, plus a third-party connection)
+// into every page load, including the storefront pages that never offer Google
+// sign-in. It now wraps only the Auth route — the one place `useGoogleLogin` is
+// used — which is itself lazy-loaded, so GSI is fetched on demand.
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <HelmetProvider>
-      <GoogleOAuthProvider clientId={googleClientId}>
-        <App />
-      </GoogleOAuthProvider>
+      <App />
     </HelmetProvider>
   </StrictMode>
 );

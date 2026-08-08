@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
 import { getOptimizedImageUrl } from '../utils/imageUrls';
+import StaticImage from '../components/StaticImage';
 
 export default function Home() {
   const { addToCart } = useCart();
@@ -28,14 +29,14 @@ export default function Home() {
   const [currentHero, setCurrentHero] = useState(0);
   const heroSlides = [
     {
-      image: "/hero_1.png",
+      base: "hero_1",
       title: "THE VENUS RAIN COLLECTION",
       subtitle: "Sensual shapes and fluid sterling silver silhouettes that capture the starlight.",
       link: "/products?cat=necklaces",
       linkText: "SHOP THE COLLECTION"
     },
     {
-      image: "/hero_2.png",
+      base: "hero_2",
       title: "ELEVATED CLASSICS",
       subtitle: "Handcrafted 925 sterling silver rings designed to make an understated statement.",
       link: "/products?cat=rings",
@@ -43,11 +44,31 @@ export default function Home() {
     }
   ];
 
+  // Autoplay is deliberately deferred until after `load`, and skipped entirely
+  // for users who ask for reduced motion.
+  //
+  // Beyond being the polite default, this is what makes the hero a valid LCP
+  // candidate: a carousel that starts mutating the DOM immediately never lets
+  // the page reach a quiet state, so Chrome never commits a Largest Contentful
+  // Paint candidate and Lighthouse reports NO_LCP (which voids the whole
+  // performance score, not just the LCP metric).
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentHero((prev) => (prev + 1) % heroSlides.length);
-    }, 6000);
-    return () => clearInterval(timer);
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    let timer;
+    const start = () => {
+      timer = setInterval(() => {
+        setCurrentHero((prev) => (prev + 1) % heroSlides.length);
+      }, 6000);
+    };
+
+    if (document.readyState === 'complete') {
+      const idle = setTimeout(start, 2000);
+      return () => { clearTimeout(idle); clearInterval(timer); };
+    }
+    const onLoad = () => { setTimeout(start, 2000); };
+    window.addEventListener('load', onLoad, { once: true });
+    return () => { window.removeEventListener('load', onLoad); clearInterval(timer); };
   }, [heroSlides.length]);
 
   const prevHeroSlide = () => {
@@ -77,7 +98,7 @@ export default function Home() {
       setSubscribeMsg(data.message || 'Welcome to the Universe of Silver. Check your inbox.');
       setSubscribed(true);
       setEmail('');
-    } catch (_) {
+    } catch {
       setSubscribeMsg('Something went wrong. Please try again.');
     }
     setSubscribing(false);
@@ -107,15 +128,12 @@ export default function Home() {
           >
             {/* Background Image */}
             <div className="absolute inset-0 bg-black/30 z-10" />
-            <img
-              src={slide.image}
+            <StaticImage
+              base={slide.base}
               alt={slide.title}
-              width={1600}
-              height={1000}
-              fetchPriority={idx === 0 ? 'high' : 'low'}
-              loading={idx === 0 ? 'eager' : 'lazy'}
-              decoding="async"
-              className="w-full h-full object-cover transform scale-100 transition-transform duration-[6000ms] ease-out"
+              eager={idx === 0}
+              sizes="100vw"
+              className="w-full h-full object-cover"
             />
             {/* Content Overlay */}
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6 pt-28 md:pt-0">
@@ -181,7 +199,17 @@ export default function Home() {
           </h2>
 
           {/* Mobile: full-bleed horizontal scroll strip */}
-          <div className="md:hidden flex gap-3 overflow-x-auto scroll-smooth snap-x snap-mandatory px-5 pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* NOTE: deliberately no `scroll-smooth` here.
+              scroll-behavior:smooth made the mandatory scroll-snap settle with an
+              animated programmatic scroll during load. Chrome permanently stops
+              recording Largest Contentful Paint candidates at the first scroll, so
+              that snap fired before the hero image painted and the page reported
+              *no* LCP at all — which voids the entire Lighthouse performance score
+              (it showed as an error, not a low number). This container is only
+              rendered below `md`, which is why it broke mobile but never desktop.
+              scroll-behavior only affects programmatic scrolls, so dropping it
+              leaves touch scrolling and snapping unchanged. */}
+          <div className="md:hidden flex gap-3 overflow-x-auto snap-x snap-mandatory px-5 pb-4 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { name: 'Chains', img: '/categories/Chain-960.webp', query: 'necklaces' },
               { name: 'Bracelets', img: '/categories/Bracelets-960.webp', query: 'bracelets' },
@@ -250,11 +278,11 @@ export default function Home() {
           {/* Left Split */}
           <div className="flex flex-col group">
             <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden border border-white/5 mb-6">
-              <img
-                src="/split_1.png"
+              <StaticImage
+                base="split_1"
                 alt="Stellar Chains Campaign"
+                sizes="(min-width: 768px) 50vw, 100vw"
                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                loading="lazy"
               />
             </div>
             <span className="text-[10px] tracking-[0.3em] text-silver-dark uppercase mb-2 font-medium">CAMPAIGN SPOTLIGHT</span>
@@ -276,11 +304,11 @@ export default function Home() {
           {/* Right Split */}
           <div className="flex flex-col group">
             <div className="aspect-[4/5] bg-[#0a0a0a] overflow-hidden border border-white/5 mb-6">
-              <img
-                src="/split_2.png"
+              <StaticImage
+                base="split_2"
                 alt="Nova Cuffs Campaign"
+                sizes="(min-width: 768px) 50vw, 100vw"
                 className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
-                loading="lazy"
               />
             </div>
             <span className="text-[10px] tracking-[0.3em] text-silver-dark uppercase mb-2 font-medium">SEASONAL ESSENTIALS</span>
@@ -385,11 +413,11 @@ export default function Home() {
       <section className="py-24 px-6 lg:px-12 bg-[#000000] border-b border-white/5">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-12 lg:gap-20">
           <div className="aspect-[4/3] bg-[#0a0a0a] border border-white/5 overflow-hidden">
-            <img
-              src="/brand_story.png"
+            <StaticImage
+              base="brand_story"
               alt="Selestial Craftsman at work"
+              sizes="(min-width: 1024px) 50vw, 100vw"
               className="w-full h-full object-cover"
-              loading="lazy"
             />
           </div>
 
