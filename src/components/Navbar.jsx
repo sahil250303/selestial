@@ -335,6 +335,9 @@ export default function Navbar() {
             <div className="relative hidden sm:block">
               {customerName ? (
                 <button
+                  type="button"
+                  aria-label="Account menu"
+                  aria-expanded={showUserDropdown}
                   onClick={() => setShowUserDropdown(!showUserDropdown)}
                   className={'flex items-center space-x-2 text-xs tracking-widest font-semibold uppercase ' + hoverColor + ' transition'}
                 >
@@ -374,6 +377,10 @@ export default function Navbar() {
             </Link>
 
             <button
+              type="button"
+              aria-label="Open menu"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
               className={'md:hidden transition-colors duration-300 ' + (scrolled ? 'text-dark hover:text-gray-600' : 'text-white/80 hover:text-white')}
               onClick={() => setMobileMenuOpen(true)}
             >
@@ -384,7 +391,12 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Menu Overlay */}
-      <div className={'md:hidden fixed inset-0 z-[60] transition-all duration-500 ease-in-out ' + (mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
+      {/* `inert` (not aria-hidden) while closed: the panel stays in the DOM for the
+          fade transition, so without it keyboard users tab into an invisible menu.
+          aria-hidden alone would be worse — hiding a subtree that still contains
+          focusable controls is itself a violation. */}
+      <div id="mobile-menu" inert={!mobileMenuOpen}
+        className={'md:hidden fixed inset-0 z-[60] transition-all duration-500 ease-in-out ' + (mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}>
         <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setMobileMenuOpen(false)} />
 
         <div className={'absolute top-0 right-0 w-[85%] max-w-[400px] h-full bg-dark/90 backdrop-blur-3xl border-l border-white/5 shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] transform flex flex-col ' + (mobileMenuOpen ? 'translate-x-0' : 'translate-x-full')}>
@@ -395,7 +407,7 @@ export default function Navbar() {
               <span className="text-white font-serif text-lg tracking-[0.3em] uppercase">Menu</span>
               <div className="h-[1px] w-8 bg-silver/30 mt-1" />
             </div>
-            <button onClick={() => setMobileMenuOpen(false)} className="group relative p-2 overflow-hidden rounded-full">
+            <button type="button" aria-label="Close menu" onClick={() => setMobileMenuOpen(false)} className="group relative p-2 overflow-hidden rounded-full">
               <div className="absolute inset-0 bg-white/5 group-hover:bg-white/10 transition-colors" />
               <X size={24} strokeWidth={1} className="text-white/70 group-hover:text-white transition-all duration-300 group-hover:rotate-90" />
             </button>

@@ -1,0 +1,37 @@
+# Selestial
+
+> Selestial is an online jewellery store selling premium 925 sterling silver pieces — rings, chains, bracelets, earrings, pendants and sets. Free shipping on orders over $100.
+
+Selestial ships worldwide from Australia. All pieces are solid 925 sterling silver (stamped), not plated. Prices are listed in USD on the storefront.
+
+## Shop
+
+- [All products](https://selestial-lovat.vercel.app/products): The full catalogue with filters for category, gender and price.
+- [Rings](https://selestial-lovat.vercel.app/products?cat=rings): Signet, eternity, texture, chain and CZ rings.
+- [Chains & necklaces](https://selestial-lovat.vercel.app/products?cat=necklaces): Curb, cuban and link chains, plus pendants.
+- [Bracelets](https://selestial-lovat.vercel.app/products?cat=bracelets): Cuffs and link bracelets.
+- [Earrings](https://selestial-lovat.vercel.app/products?cat=earrings): Studs, hoops, drops and cuffs.
+
+## Buying
+
+- [Cart](https://selestial-lovat.vercel.app/cart): Review items before checkout.
+- [Checkout](https://selestial-lovat.vercel.app/checkout): Card payment via Stripe. Requires name, email, phone and shipping address.
+- [Sign in or create an account](https://selestial-lovat.vercel.app/auth): Email and password, Google sign-in, or phone OTP.
+- [Shipping & returns](https://selestial-lovat.vercel.app/shipping-returns): Delivery times, costs and the returns window.
+
+## Help and policies
+
+- [FAQ](https://selestial-lovat.vercel.app/faq): Common questions about orders, materials and delivery.
+- [Size guide](https://selestial-lovat.vercel.app/size-guide): How to measure ring and bracelet size.
+- [Care guide](https://selestial-lovat.vercel.app/care-guide): Cleaning and storing sterling silver.
+- [Contact](https://selestial-lovat.vercel.app/contact): How to reach customer service.
+- [Privacy policy](https://selestial-lovat.vercel.app/privacy)
+- [Terms of service](https://selestial-lovat.vercel.app/terms)
+
+## About
+
+- [Our story](https://selestial-lovat.vercel.app/about): Brand background and craftsmanship.
+
+## Optional
+
+- [Sitemap](https://selestial-lovat.vercel.app/sitemap.xml): Machine-readable list of every page, including one URL per product.

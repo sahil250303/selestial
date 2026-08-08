@@ -45,3 +45,19 @@ createRoot(document.getElementById('root')).render(
     </HelmetProvider>
   </StrictMode>
 );
+
+// index.html carries a baseline <title>/description/canonical so consumers that
+// never run JavaScript (AI agents, crawlers, link unfurlers) get real metadata.
+// React 19 hoists its own per-route copies into <head> but does NOT dedupe
+// against tags it did not create, so leaving both in place yields two <title>
+// elements — the exact duplication src/components/Seo.jsx was written to fix.
+// Drop the static ones now that React owns the real values. Deferred one task so
+// React's tags are already in the document and the head is never briefly empty.
+//
+// Deliberately setTimeout and NOT requestAnimationFrame: rAF does not fire while
+// a tab is backgrounded or not compositing, which is precisely the case for
+// headless crawlers and AI agents — the duplicate tags would then never be
+// cleaned up for the very clients this metadata exists to serve.
+setTimeout(() => {
+  for (const el of document.querySelectorAll('head [data-static-meta]')) el.remove();
+}, 0);

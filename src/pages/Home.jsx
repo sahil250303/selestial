@@ -223,9 +223,12 @@ export default function Home() {
                 className="flex-none snap-start w-[42vw] max-w-[168px] flex flex-col items-center"
               >
                 <div className="w-full aspect-square bg-[#0a0a0a] overflow-hidden border border-white/5 rounded-lg relative">
+                  {/* Decorative: the category name is rendered as text directly
+                      below, so alt text here would just repeat it to screen
+                      readers (Lighthouse "image-redundant-alt"). */}
                   <img
                     src={cat.img}
-                    alt={cat.name}
+                    alt=""
                     className="w-full h-full object-cover"
                     loading="lazy"
                     draggable="false"
@@ -256,9 +259,10 @@ export default function Home() {
               >
                 <div className="w-full aspect-square bg-[#0a0a0a] overflow-hidden border border-white/5 relative">
                   <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-500 z-10 pointer-events-none" />
+                  {/* Decorative — the <h3> below carries the category name. */}
                   <img
                     src={cat.img}
-                    alt={cat.name}
+                    alt=""
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700 ease-out"
                     loading="lazy"
                   />

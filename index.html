@@ -6,9 +6,17 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Title, description, canonical and Open Graph/Twitter tags are all rendered
-       per-page by React (React 19 native document metadata). Keeping them out of
-       this shell guarantees a single, correct <title> with no duplicates. -->
+  <!-- Baseline metadata for consumers that do NOT execute JavaScript — AI agents,
+       link unfurlers and crawlers that only read the raw HTML. React renders the
+       per-page title/description/canonical on top (React 19 native document
+       metadata, see src/components/Seo.jsx) and de-duplicates against these, so
+       a JS-capable client still gets the route-specific values.
+       Previously these lived only in React, which meant a plain `curl` of the
+       page returned no title, description or canonical at all. -->
+  <title data-static-meta>Selestial | Universe of Silver</title>
+  <meta data-static-meta name="description"
+    content="Premium 925 sterling silver jewellery — rings, chains, bracelets and earrings crafted with celestial precision. Free shipping over $100." />
+  <link data-static-meta rel="canonical" href="https://selestial-lovat.vercel.app/" />
   <meta name="theme-color" content="#000000" />
 
   <!-- Critical styles for the static hero below. Inline so the first paint needs
