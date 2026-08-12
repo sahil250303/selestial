@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { ChevronLeft, ChevronRight, Heart, ArrowRight } from 'lucide-react';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
+import ServiceSection from '../components/ServiceSection';
 import { getOptimizedImageUrl } from '../utils/imageUrls';
 import StaticImage from '../components/StaticImage';
 
@@ -485,6 +486,8 @@ export default function Home() {
           )}
         </div>
       </section>
+
+      <ServiceSection />
     </div>
   );
 }

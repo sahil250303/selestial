@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import gsap from 'gsap';
 import { useCart } from '../App';
 import { useWishlist } from '../context/WishlistContext';
+import ServiceSection from '../components/ServiceSection';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { getImageSrcSet, getOptimizedImageUrl } from '../utils/imageUrls.js';
 import Breadcrumb from '../components/Breadcrumb';
@@ -374,6 +375,8 @@ export default function ProductDetails() {
           </div>
         )}
       </div>
+
+      <ServiceSection />
     </div>
   );
 }
