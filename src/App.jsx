@@ -38,7 +38,6 @@ function useIdleAfterLoad() {
   }, []);
   return ready;
 }
-import ServiceSection from './components/ServiceSection';
 import ErrorBoundary from './components/ErrorBoundary';
 import ScrollToTop from './components/ScrollToTop';
 import { WishlistProvider } from './context/WishlistContext';
@@ -198,7 +197,6 @@ function App() {
               </Routes>
               </Suspense>
               </ErrorBoundary>
-              <ServiceSection />
               <Footer />
               {showFloatingCart && <Suspense fallback={null}><FloatingCart /></Suspense>}
               {/* Deferred to idle for the same reason as FloatingCart: these two
