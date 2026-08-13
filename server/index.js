@@ -123,7 +123,7 @@ app.post('/api/auth/customer/google',        loginLimiter,     loginWithGoogle);
 app.post('/api/auth/customer/send-otp',      otpSendLimiter,   sendOtp);
 app.post('/api/auth/customer/verify-otp',    otpVerifyLimiter, verifyOtp);
 app.delete('/api/auth/logout', (req, res) => {
-  res.clearCookie('authToken', { httpOnly: true, secure: true, sameSite: 'Strict' });
+  res.clearCookie('authToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' });
   res.json({ message: 'Logged out successfully' });
 });
 
@@ -391,7 +391,11 @@ app.use(express.static(distPath, {
 app.get('/{*splat}', (req, res) => res.sendFile(join(distPath, 'index.html')));
 
 if (!process.env.VERCEL) {
-  app.listen(PORT, '0.0.0.0', () => console.log(`Backend running on http://0.0.0.0:${PORT}`));
+  if (isNaN(PORT)) {
+    app.listen(PORT, () => console.log(`Backend running on socket ${PORT}`));
+  } else {
+    app.listen(PORT, '0.0.0.0', () => console.log(`Backend running on http://0.0.0.0:${PORT}`));
+  }
 }
 
 export default app;

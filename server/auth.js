@@ -14,6 +14,26 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // OTP codes are never stored in clear text — only a SHA-256 hash is persisted.
 const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
 
+// ── Session cookie ────────────────────────────────────────────────────────────
+// The JWT is delivered as an httpOnly cookie so it is NOT readable by JavaScript
+// (defends against token theft via XSS). It is also returned in the JSON body for
+// backwards compatibility (e.g. the admin panel), but the cookie is the primary
+// mechanism — `verifyToken` reads the cookie first.
+export const AUTH_COOKIE = 'authToken';
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const authCookieOptions = (maxAge) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+  maxAge,
+});
+function issueSession(res, payload, { expiresIn, maxAge }) {
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn });
+  res.cookie(AUTH_COOKIE, token, authCookieOptions(maxAge));
+  return token;
+}
+
 export const loginAdmin = (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
@@ -21,7 +41,7 @@ export const loginAdmin = (req, res) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     if (!bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, username: user.username, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
+    const token = issueSession(res, { id: user.id, username: user.username, role: 'admin' }, { expiresIn: '24h', maxAge: DAY_MS });
     res.json({ token, message: 'Login successful' });
   });
 };
@@ -50,7 +70,7 @@ export const signupCustomer = (req, res) => {
     const stmt = db.prepare('INSERT INTO customers (name, email, phone, password, auth_provider, join_date) VALUES (?, ?, ?, ?, ?, ?)');
     stmt.run(name, email || null, phone || null, hashedPassword, auth_provider || 'local', date, function(err) {
       if (err) return res.status(500).json({ error: 'Database error creating customer' });
-      const token = jwt.sign({ id: this.lastID, email, phone }, JWT_SECRET, { expiresIn: '7d' });
+      const token = issueSession(res, { id: this.lastID, email, phone }, { expiresIn: '7d', maxAge: 7 * DAY_MS });
       res.status(201).json({ token, message: 'Signup successful', user: { name, email, phone } });
     });
     stmt.finalize();
@@ -67,10 +87,9 @@ export const loginCustomer = (req, res) => {
   const query = email ? 'SELECT * FROM customers WHERE email = ?' : 'SELECT * FROM customers WHERE phone = ?';
   db.get(query, [param], (err, user) => {
     if (err) return res.status(500).json({ error: 'Database error' });
-    // Generic message — do not reveal whether the account exists.
     if (!user || !user.password) return res.status(401).json({ error: 'Invalid credentials' });
     if (!password || !bcrypt.compareSync(password, user.password)) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
+    const token = issueSession(res, { id: user.id, email: user.email, phone: user.phone }, { expiresIn: '7d', maxAge: 7 * DAY_MS });
     res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
   });
 };
@@ -91,13 +110,13 @@ export const loginWithGoogle = async (req, res) => {
     db.get('SELECT * FROM customers WHERE email = ?', [email], (err, user) => {
       if (err) return res.status(500).json({ error: 'Database error' });
       if (user) {
-        const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
+        const token = issueSession(res, { id: user.id, email: user.email, phone: user.phone }, { expiresIn: '7d', maxAge: 7 * DAY_MS });
         return res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
       }
       const stmt = db.prepare('INSERT INTO customers (name, email, auth_provider, join_date) VALUES (?, ?, ?, ?)');
       stmt.run(name, email, 'google', date, function(insertErr) {
         if (insertErr) return res.status(500).json({ error: 'Database error creating customer' });
-        const token = jwt.sign({ id: this.lastID, email }, JWT_SECRET, { expiresIn: '7d' });
+        const token = issueSession(res, { id: this.lastID, email }, { expiresIn: '7d', maxAge: 7 * DAY_MS });
         res.status(201).json({ token, message: 'Signup successful', user: { name, email, phone: null } });
       });
       stmt.finalize();
@@ -150,7 +169,7 @@ export const verifyOtp = (req, res) => {
     db.get('SELECT * FROM customers WHERE phone = ?', [phone], (err2, user) => {
       if (err2) return res.status(500).json({ error: 'Database error looking up user' });
       if (user) {
-        const token = jwt.sign({ id: user.id, email: user.email, phone: user.phone }, JWT_SECRET, { expiresIn: '7d' });
+        const token = issueSession(res, { id: user.id, email: user.email, phone: user.phone }, { expiresIn: '7d', maxAge: 7 * DAY_MS });
         return res.json({ token, message: 'Login successful', user: { name: user.name, email: user.email, phone: user.phone, address: user.address || null } });
       }
       if (!name) return res.status(400).json({ error: 'Name is required to create a new account' });
@@ -158,7 +177,7 @@ export const verifyOtp = (req, res) => {
       const stmt = db.prepare('INSERT INTO customers (name, phone, auth_provider, join_date) VALUES (?, ?, ?, ?)');
       stmt.run(name, phone, 'otp', date, function(insertErr) {
         if (insertErr) return res.status(500).json({ error: 'Database error creating customer' });
-        const token = jwt.sign({ id: this.lastID, phone }, JWT_SECRET, { expiresIn: '7d' });
+        const token = issueSession(res, { id: this.lastID, phone }, { expiresIn: '7d', maxAge: 7 * DAY_MS });
         res.status(201).json({ token, message: 'Signup successful', user: { name, phone } });
       });
       stmt.finalize();

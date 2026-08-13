@@ -39,14 +39,12 @@ const Profile = () => {
       return;
     }
     setUser(session.user);
-    fetchOrders(session.token);
+    fetchOrders();
   }, [navigate]);
 
-  const fetchOrders = async (token) => {
+  const fetchOrders = async () => {
     try {
-      const res = await fetch('/api/customer/orders', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await fetch('/api/customer/orders');
       if (res.ok) {
         const data = await res.json();
         setOrders(Array.isArray(data) ? data : []);
@@ -61,7 +59,8 @@ const Profile = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await fetch('/api/auth/logout', { method: 'DELETE' }); } catch { /* ignore */ }
     clearCustomerSession();
     navigate('/');
     window.location.reload();
@@ -86,10 +85,7 @@ const Profile = () => {
       const session = getCustomerSession();
       const res = await fetch('/api/customer/profile', {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: editPhone.trim(), address: editAddress.trim() }),
       });
       if (!res.ok) {
@@ -98,7 +94,7 @@ const Profile = () => {
       }
       const { user: updatedUser } = await res.json();
       const merged = { ...session.user, ...updatedUser };
-      setCustomerSession({ token: session.token, user: merged });
+      setCustomerSession({ user: merged });
       setUser(merged);
       setEditing(false);
     } catch (e) {

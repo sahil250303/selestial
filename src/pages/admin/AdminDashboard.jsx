@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { getOptimizedImageUrl } from '../../utils/imageUrls.js';
+import { useToast } from '../../components/Toast';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('products');
@@ -24,6 +25,7 @@ export default function AdminDashboard() {
   const additionalFilesRef = React.useRef(null);
 
   const navigate = useNavigate();
+  const toast = useToast();
   const token = localStorage.getItem('selestial_admin_token');
 
   const fetchData = async (endpoint, setter) => {
@@ -84,11 +86,11 @@ export default function AdminDashboard() {
       if (res.ok) {
         setNewProduct(prev => ({ ...prev, image: data.urls[0] }));
       } else {
-        alert(data.error || 'Failed to upload image');
+        toast({ message: data.error || 'Failed to upload image', type: 'error' });
       }
     } catch (err) {
       console.error(err);
-      alert('Error uploading image');
+      toast({ message: 'Error uploading image', type: 'error' });
     } finally {
       setUploadingImage(false);
     }
@@ -114,11 +116,11 @@ export default function AdminDashboard() {
           additional_images: [...(prev.additional_images || []), ...data.urls] 
         }));
       } else {
-        alert(data.error || 'Failed to upload additional images');
+        toast({ message: data.error || 'Failed to upload additional images', type: 'error' });
       }
     } catch (err) {
       console.error(err);
-      alert('Error uploading additional images');
+      toast({ message: 'Error uploading additional images', type: 'error' });
     } finally {
       setUploadingAdditional(false);
     }
@@ -273,11 +275,11 @@ export default function AdminDashboard() {
         resetForm();
         setActiveTab('products');
       } else {
-        alert('Failed to save product');
+        toast({ message: 'Failed to save product', type: 'error' });
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving product');
+      toast({ message: 'Error saving product', type: 'error' });
     }
   };
 

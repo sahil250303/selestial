@@ -32,12 +32,14 @@ export default function Navbar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customerName, setCustomerName] = useState(null);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
 
   const [suggestions, setSuggestions] = useState([]);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const debounceTimer = useRef(null);
   const searchWrapperRef = useRef(null);
+  const categoriesRef = useRef(null);
   const inputRef = useRef(null);
   const productsCache = useRef(null);
 
@@ -72,7 +74,18 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Categories menu: close on Escape or outside click (keyboard/touch accessible)
+  useEffect(() => {
+    if (!categoriesOpen) return;
+    const onDocClick = (e) => { if (categoriesRef.current && !categoriesRef.current.contains(e.target)) setCategoriesOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setCategoriesOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDocClick); document.removeEventListener('keydown', onKey); };
+  }, [categoriesOpen]);
+
   const handleLogout = () => {
+    fetch('/api/auth/logout', { method: 'DELETE' }).catch(() => {}); // clears the httpOnly cookie
     clearCustomerSession();
     setCustomerName(null);
     setShowUserDropdown(false);
@@ -298,15 +311,31 @@ export default function Navbar() {
               <div className={'hidden md:flex items-center space-x-10 text-sm font-medium tracking-wider transition-colors duration-300 ' + (scrolled ? 'text-gray-700' : 'text-silver')}>
                 <Link to="/" className={'transition-colors duration-200 ' + hoverColor + ' ' + (location.pathname === '/' ? (scrolled ? 'text-dark font-semibold' : 'text-white') : '')}>HOME</Link>
                 <Link to="/products" className={'transition-colors duration-200 ' + hoverColor + ' ' + (location.pathname === '/products' && !location.search ? (scrolled ? 'text-dark font-semibold' : 'text-white') : '')}>ALL PRODUCTS</Link>
-                <div className="relative group cursor-pointer">
-                  <span className={'transition-colors duration-200 uppercase ' + hoverColor + ' ' + (location.search.includes('cat=') ? (scrolled ? 'text-dark font-semibold' : 'text-white') : '')}>CATEGORIES</span>
-                  <div className="absolute top-full left-0 mt-2 w-48 glass-panel opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity duration-300 p-4 space-y-3 flex flex-col">
-                    <Link to="/products?cat=sets" className="hover:text-white transition-colors">Sets</Link>
-                    <Link to="/products?cat=earrings" className="hover:text-white transition-colors">Earrings</Link>
-                    <Link to="/products?cat=bracelets" className="hover:text-white transition-colors">Bracelets</Link>
-                    <Link to="/products?cat=rings" className="hover:text-white transition-colors">Rings</Link>
-                    <Link to="/products?cat=pendants" className="hover:text-white transition-colors">Pendants</Link>
-                    <Link to="/products?cat=necklaces" className="hover:text-white transition-colors">Chains</Link>
+                <div
+                  className="relative"
+                  ref={categoriesRef}
+                  onMouseEnter={() => setCategoriesOpen(true)}
+                  onMouseLeave={() => setCategoriesOpen(false)}
+                >
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={categoriesOpen}
+                    onClick={() => setCategoriesOpen((o) => !o)}
+                    className={'uppercase transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 rounded-sm ' + hoverColor + ' ' + (location.search.includes('cat=') ? (scrolled ? 'text-dark font-semibold' : 'text-white') : '')}
+                  >
+                    CATEGORIES
+                  </button>
+                  <div
+                    role="menu"
+                    className={'absolute top-full left-0 mt-2 w-48 glass-panel transition-opacity duration-300 p-4 space-y-3 flex flex-col ' + (categoriesOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none')}
+                  >
+                    <Link role="menuitem" to="/products?cat=sets" onClick={() => setCategoriesOpen(false)} className="hover:text-white transition-colors">Sets</Link>
+                    <Link role="menuitem" to="/products?cat=earrings" onClick={() => setCategoriesOpen(false)} className="hover:text-white transition-colors">Earrings</Link>
+                    <Link role="menuitem" to="/products?cat=bracelets" onClick={() => setCategoriesOpen(false)} className="hover:text-white transition-colors">Bracelets</Link>
+                    <Link role="menuitem" to="/products?cat=rings" onClick={() => setCategoriesOpen(false)} className="hover:text-white transition-colors">Rings</Link>
+                    <Link role="menuitem" to="/products?cat=pendants" onClick={() => setCategoriesOpen(false)} className="hover:text-white transition-colors">Pendants</Link>
+                    <Link role="menuitem" to="/products?cat=necklaces" onClick={() => setCategoriesOpen(false)} className="hover:text-white transition-colors">Chains</Link>
                   </div>
                 </div>
               </div>

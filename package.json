@@ -5,7 +5,7 @@
   "type": "module",
   "main": "server.js",
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
   "scripts": {
     "start": "node server.js",
@@ -16,6 +16,7 @@
     "images": "node scripts/optimize-images.mjs",
     "build": "vite build",
     "build:prerender": "npm run build && node scripts/prerender.mjs",
+    "package:hostinger": "node scripts/package-for-hostinger.mjs",
     "postinstall": "npm run build",
     "lint": "eslint .",
     "preview": "vite preview"

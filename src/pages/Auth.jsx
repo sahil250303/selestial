@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Phone, Lock, User, ArrowRight, CheckCircle } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
-import { setCustomerSession } from '../utils/auth';
+import { setCustomerSession, isLoggedIn } from '../utils/auth';
 import { googleEnabled } from '../config/google.js';
 
 const Auth = () => {
@@ -18,8 +18,7 @@ const Auth = () => {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('customerToken');
-    if (token) navigate('/');
+    if (isLoggedIn()) navigate('/');
   }, [navigate]);
 
   const handleChange = (e) => {

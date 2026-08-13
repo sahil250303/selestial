@@ -30,3 +30,14 @@ server/uploads/cache/
 .env
 .env.*
 .env*.local
+
+# Database
+server/database.sqlite
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+*.db
+
+# Deploy artifacts
+*.zip
+deploy/hostinger/stage/

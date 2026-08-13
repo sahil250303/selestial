@@ -7,7 +7,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { Heart, Star, ChevronDown, ChevronUp } from 'lucide-react';
 import { getImageSrcSet, getOptimizedImageUrl } from '../utils/imageUrls.js';
 import Breadcrumb from '../components/Breadcrumb';
-import { getCustomerToken } from '../utils/auth';
+import { isLoggedIn } from '../utils/auth';
 
 function StarRating({ rating, max = 5, size = 16 }) {
   return (
@@ -37,7 +37,7 @@ export default function ProductDetails() {
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewError, setReviewError] = useState('');
-  const loggedIn = !!getCustomerToken();
+  const loggedIn = isLoggedIn();
 
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
@@ -82,10 +82,9 @@ export default function ProductDetails() {
     setReviewSubmitting(true);
     setReviewError('');
     try {
-      const token = getCustomerToken();
       const res = await fetch(`/api/products/${id}/reviews`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reviewForm),
       });
       if (res.ok) {

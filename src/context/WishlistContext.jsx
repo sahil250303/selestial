@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { getCustomerSession, getCustomerToken } from '../utils/auth';
+import { isLoggedIn } from '../utils/auth';
 
 const WishlistContext = createContext();
 
@@ -24,17 +24,14 @@ export const WishlistProvider = ({ children }) => {
   }, [wishlist]);
 
   // On mount: if the user is logged in, fetch their persisted wishlist from the
-  // DB and merge it with whatever is already in localStorage (handles the case
-  // where a guest adds items, then logs in).
+  // DB and merge it with whatever is already in localStorage. Auth is via the
+  // httpOnly session cookie, sent automatically on these same-origin requests.
   useEffect(() => {
     if (synced.current) return;
-    const session = getCustomerSession();
-    if (!session) return;
+    if (!isLoggedIn()) return;
     synced.current = true;
 
-    fetch('/api/customer/wishlist', {
-      headers: { Authorization: `Bearer ${session.token}` },
-    })
+    fetch('/api/customer/wishlist')
       .then((r) => (r.ok ? r.json() : []))
       .then((dbItems) => {
         if (!Array.isArray(dbItems)) return;
@@ -47,10 +44,7 @@ export const WishlistProvider = ({ children }) => {
               // Back-fill the DB with locally-stored items the server doesn't know about
               fetch('/api/customer/wishlist', {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${session.token}`,
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ productId: item.id }),
               }).catch(() => {});
             }
@@ -63,7 +57,7 @@ export const WishlistProvider = ({ children }) => {
 
   /**
    * Toggle a product in/out of the wishlist.
-   * Syncs to the DB when the user is authenticated.
+   * Syncs to the DB when the user is authenticated (cookie auth).
    */
   const toggleWishlist = (product) => {
     setWishlist((prev) => {
@@ -72,20 +66,13 @@ export const WishlistProvider = ({ children }) => {
         ? prev.filter((item) => item.id !== product.id)
         : [...prev, product];
 
-      const token = getCustomerToken();
-      if (token) {
+      if (isLoggedIn()) {
         if (exists) {
-          fetch(`/api/customer/wishlist/${product.id}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${token}` },
-          }).catch(() => {});
+          fetch(`/api/customer/wishlist/${product.id}`, { method: 'DELETE' }).catch(() => {});
         } else {
           fetch('/api/customer/wishlist', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ productId: product.id }),
           }).catch(() => {});
         }
@@ -99,12 +86,8 @@ export const WishlistProvider = ({ children }) => {
 
   const removeFromWishlist = (productId) => {
     setWishlist((prev) => prev.filter((item) => item.id !== productId));
-    const token = getCustomerToken();
-    if (token) {
-      fetch(`/api/customer/wishlist/${productId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
+    if (isLoggedIn()) {
+      fetch(`/api/customer/wishlist/${productId}`, { method: 'DELETE' }).catch(() => {});
     }
   };
 

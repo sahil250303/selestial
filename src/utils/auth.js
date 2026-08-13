@@ -1,88 +1,61 @@
-// ── Customer session — single source of truth ────────────────────────────────
-// The customer session is persisted across three legacy localStorage keys:
-//   • customerToken  — the JWT used for API calls
-//   • customerData   — JSON-encoded user object { name, email, phone, ... }
-//   • customerName   — convenience copy of the display name (read by the Navbar)
-//
-// Reading these keys ad-hoc in each component caused two production bugs:
-//   1. A corrupt/partial `customerData` value (e.g. the literal string
-//      "undefined") made an un-guarded `JSON.parse` throw, which on a route with
-//      no error boundary rendered a permanent BLANK PAGE.
-//   2. The Navbar showed the "Profile" link based on `customerName` alone while
-//      Profile required `customerData` + `customerToken`, so any drift between
-//      the keys produced a link that led nowhere.
-//
-// All reads/writes now go through this module so the three keys stay in sync and
-// a bad value self-heals (it is cleared and treated as "logged out") instead of
-// crashing the app.
+// ── Customer session ──────────────────────────────────────────────────────────
+// The JWT now lives in an httpOnly cookie set by the server, so it is NOT readable
+// by JavaScript (this removes the XSS token-theft risk of storing it in
+// localStorage). We persist only the user PROFILE locally, purely for UI
+// (greeting, checkout pre-fill). API calls authenticate via the cookie, which the
+// browser sends automatically on same-origin requests.
 
-const TOKEN_KEY = 'customerToken';
 const DATA_KEY = 'customerData';
 const NAME_KEY = 'customerName';
 
 /**
- * Returns the active customer session, or `null` when logged out.
+ * Returns the active customer session ({ user }) or null when logged out.
  * Never throws: malformed storage is cleared and treated as logged-out.
- * @returns {{ token: string, user: { name: string, email?: string, phone?: string } } | null}
  */
 export function getCustomerSession() {
   try {
-    const token = localStorage.getItem(TOKEN_KEY);
     const rawData = localStorage.getItem(DATA_KEY);
-
-    // Both pieces are required for a usable session.
-    if (!token || !rawData || rawData === 'undefined' || rawData === 'null') {
-      return null;
-    }
-
+    if (!rawData || rawData === 'undefined' || rawData === 'null') return null;
     const user = JSON.parse(rawData);
     if (!user || typeof user !== 'object' || !user.name) {
-      // Shape we never expect — purge it so the app falls back to logged-out.
       clearCustomerSession();
       return null;
     }
-
-    return { token, user };
+    return { user };
   } catch {
-    // Corrupt JSON, etc. Self-heal rather than crash the rendering route.
     clearCustomerSession();
     return null;
   }
 }
 
-/** Convenience accessor for just the bearer token (or null). */
+/**
+ * Deprecated. The JWT is no longer accessible to JavaScript (httpOnly cookie),
+ * so this always returns null. API calls rely on the cookie instead of a bearer
+ * header. Kept so existing imports don't break.
+ */
 export function getCustomerToken() {
-  return getCustomerSession()?.token ?? null;
+  return null;
 }
 
-/**
- * Persists a session returned by the auth API. Validates the backend payload so
- * we never write `"undefined"` into storage.
- * @param {{ token: string, user: { name: string, email?: string, phone?: string } }} payload
- * @returns {{ token: string, user: object }}
- */
+/** Persists the user profile returned by the auth API (token is ignored — it's a cookie now). */
 export function setCustomerSession(payload) {
-  const token = payload?.token;
   const user = payload?.user;
-
-  if (!token || !user || typeof user !== 'object' || !user.name) {
+  if (!user || typeof user !== 'object' || !user.name) {
     throw new Error('Authentication response was incomplete. Please try again.');
   }
-
-  localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(DATA_KEY, JSON.stringify(user));
   localStorage.setItem(NAME_KEY, user.name);
-  return { token, user };
+  return { user };
 }
 
-/** Clears every key that makes up a customer session. */
+/** Clears the locally-stored profile (the server clears the httpOnly cookie on logout). */
 export function clearCustomerSession() {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('customerToken'); // legacy key cleanup
   localStorage.removeItem(DATA_KEY);
   localStorage.removeItem(NAME_KEY);
 }
 
-/** True when a valid, parseable session exists. */
+/** True when a usable profile is stored (the cookie is the real authenticator). */
 export function isLoggedIn() {
   return getCustomerSession() !== null;
 }

@@ -72,14 +72,11 @@ function CheckoutForm({ cart, total, formData, handleChange, isPreFilled }) {
         paymentMethodId = paymentMethod.id;
       }
 
-      // Pass auth token so the server can upsert the customer's profile
-      const session = getCustomerSession();
-      const headers = { 'Content-Type': 'application/json' };
-      if (session?.token) headers['Authorization'] = `Bearer ${session.token}`;
-
+      // The httpOnly session cookie is sent automatically (same-origin); the
+      // server reads it to upsert the logged-in customer's profile.
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
           cartItems: cart,
